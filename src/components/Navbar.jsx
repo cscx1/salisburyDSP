@@ -17,18 +17,18 @@ const Navbar = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center flex-shrink-0">
             <img className="h-10 w-10 mr-2" src={logo} alt="Logo" />
-            <span className="text-xl tracking-tight">DSP Salisbury University</span>
+            <span className="text-xl tracking-tight">Salisbury DSP</span>
           </div>
 
           <ul className="hidden lg:flex space-x-12 justify-center items-center mx-auto">
           {navItems.map((item, index) => (
             <li key={index}>
-              <Link to={item.href} className="text-white hover:text-orange-500 transition">
+              <Link to={item.href} className="text-white hover:text-red-600 transition">
                 {item.label}
               </Link>
             </li>
           ))}
-        </ul>
+        </ul> 
 
           {/* Mobile menu button */}
           <div className="lg:hidden md:flex flex-col justify-end">
