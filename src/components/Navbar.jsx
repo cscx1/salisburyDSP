@@ -1,6 +1,6 @@
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
-import logo from "../assets/logo4.png";
+import cover from "../assets/cover.png";
 import { navItems } from "../constants";
 import { Link } from "react-router-dom"; {/*To link different pages*/}
 
@@ -16,7 +16,7 @@ const Navbar = () => {
       <div className="container px-4 mx-auto relative lg:text-sm">
         <div className="flex justify-between items-center">
           <div className="flex items-center flex-shrink-0">
-            <img className="h-10 w-10 mr-2" src={logo} alt="Logo" />
+            <img className="h-10 w-30 mr-2" src={cover} alt="Logo" />
             <span className="text-xl tracking-tight">Salisbury DSP</span>
           </div>
 
