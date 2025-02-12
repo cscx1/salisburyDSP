@@ -6,6 +6,7 @@ const Applications = () => {
   const [printedLink, setPrintedLink] = useState("");
   const [error, setError] = useState("");
   const [selectedEffect, setSelectedEffect] = useState(1);
+  const [file_url, setFileUrl] = useState("");
 
   const handleLink = async () => {
     setError("");
@@ -20,6 +21,7 @@ const Applications = () => {
       const data = await response.json();
 
       if (response.ok) {
+        setFileUrl(data.file_url)
         setPrintedLink(data.result);
         setError("");
       } else {
@@ -64,6 +66,21 @@ const Applications = () => {
             Submit
           </button>
         </div>
+
+        {/* Download button only if file is available */}
+        {file_url && (
+          <div classaName="mt-4">
+            <a
+              href={file_url}
+              download
+              className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
+              onClick={() => setFileUrl("")}
+            >
+              Download Processed File
+            </a>
+          </div>
+        )}
+
         {printedLink && <p className="mt-2">You entered this link: {printedLink}</p>}
         {error && <p className="text-red-500 mt-2">{error}</p>}
       </div>

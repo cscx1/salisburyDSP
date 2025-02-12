@@ -87,12 +87,10 @@ def mids_boost(infile, outfile, boost_db=10, center_freq=1000, bandwidth=1000):
 
     print(f"Mids boosted audio saved to: {outfile}")
 
-# This will be called from the frontend
+# Download the file here locally
 def download(link, output_folder="input"):
     os.makedirs(output_folder, exist_ok=True)
-    custom_name = output_folder.strip()
-    sanitized_name = "".join(c for c in custom_name if c.isalnum() or c == " ").strip()
-    output_file = os.path.join(output_folder, f"{sanitized_name}.mp3")
+    output_file = os.path.join(output_folder, "input.mp3")
     command = [
         "yt-dlp",
         "--extract-audio",
@@ -108,11 +106,13 @@ def download(link, output_folder="input"):
         raise FileNotFoundError(f"Download failed: {output_file} was not created.")
     return output_file
 
+# This will be called from the frontend
 def input(link, choice):
     os.makedirs("input", exist_ok=True)
     os.makedirs("output", exist_ok=True)
+    
     infile = download(link)
-    outfile = os.path.join("output", "output_" + os.path.basename(infile))
+    outfile = os.path.join("output", "output.mp3")
 
     if choice == 1:
         bass_boost(infile, outfile)
