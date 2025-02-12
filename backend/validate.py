@@ -1,7 +1,7 @@
 def is_valid_yt(link) -> bool:
 
     keywords = [
-        "http",
+        "https",
         ".com",
         "youtube",
     ]
