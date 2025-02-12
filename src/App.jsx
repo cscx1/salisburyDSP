@@ -4,28 +4,55 @@ import Navbar from './components/Navbar'
 import ChatbotIcon from './components/ChatbotIcon';
 import { Routes, Route } from "react-router-dom";
 import Footer from "./components/Footer";
-
+ 
 import React, { useState, useEffect } from 'react'
-
+ 
 import Theory from "./pages/Theory";
 import Applications from "./pages/Applications";
 import Projects from "./pages/Projects";
-
+ 
 const App = () => {
-
-  const [data, setData] = useState([{}]) 
-  useEffect(() => {
-    fetch("http://localhost:5000/members") //use full backend URL
-      .then(res => res.json())
-      .then(data => {
-        setData(data);
-        console.log(data); //checking if data is retrieved in the console
-      })//if not error message
-      .catch(error => console.error("Error fetching data:", error));
-  }, []);
-
+ 
+  const [data, setData] = useState({});
+  const [operation, setOperation] = useState("");
+  const [result, setResult] = useState(null);
+ 
+ 
+    /*
+    Backand end front end connect
+    */
+ 
+    useEffect(() => {
+      fetch("http://localhost:5000/members") 
+        .then(res => res.json())
+        .then(data => {
+          setData(data);
+          console.log(data);
+        })
+        .catch(error => console.error("Error fetching data:", error));
+    }, []);
+ 
+    /*
+    Communicate in both directions, backend and frontend
+    */
+ 
+    const sendOperation = () => {
+      fetch(`http://localhost:5000/data`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ operation }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("Operation result:", data);
+          setResult(data.result);
+        })
+        .catch((error) => console.error("Error sending operation:", error));
+    };
+ 
   return (
-    
   <>
     <Navbar />
       <div className="max-w-7xl mx-auto pt-20 px-6">
@@ -37,10 +64,11 @@ const App = () => {
         </Routes>
         <Footer />
       </div>
-
+ 
+ {/*
   <div className="container">
     <div className="chatbot-popup">
-      {/*Chatbot header*/}
+      Chatbot header
       <div className="chat-header">
         <div className="header-info">
           <ChatbotIcon />
@@ -48,8 +76,8 @@ const App = () => {
         </div>
         <button className="material-symbols-rounded">keyboard_arrow_down</button>
       </div>
-
-      {/*Chatbot body*/}
+ 
+      Chatbot body
       <div className="chat-body">
         <div className="message bot-message">
         <ChatbotIcon />
@@ -60,22 +88,10 @@ const App = () => {
     </div>
     </div>
   </div> 
-
-  <div>
-  <h2 className="text-xl font-bold">Members List:</h2>
-  {data.members ? (
-    <ul className="list-disc ml-5">
-      {data.members.map((member, index) => (
-        <li key={index}>{member}</li>
-      ))}
-    </ul>
-  ) : (
-    <p>Loading members...</p>
-  )}
-</div>
-
+ */}
+ 
   </>
   );
 };
-
+ 
 export default App
