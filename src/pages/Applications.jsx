@@ -69,7 +69,7 @@ const Applications = () => {
 
         {/* Download button only if file is available */}
         {file_url && (
-          <div classaName="mt-4">
+          <div className="mt-4">
             <a
               href={file_url}
               download

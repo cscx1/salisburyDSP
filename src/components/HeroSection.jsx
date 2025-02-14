@@ -13,7 +13,7 @@ const HeroSection = () => {
         </span>
       </h1>
       <p className="mt-10 text-lg text-center text-neutral-500 max-w-4xl">
-      For the Spring 2025 semester, Aiden and Diego are undertaking an independent study research course under the guidance of Dr. Cone, focusing on Digital Signal Processing and Linear Algebra. Their work will explore filter design, frequency-domain analysis, and the mathematical principles behind these processes, including the use of formulas for signal transformations and frequency responses. This study will serve as the foundation for their research project in audio signal processing and sensing.
+      For the Spring 2025 semester, Aidan and Diego are undertaking an independent study research course under the guidance of Dr. Cone, focusing on applications of Digital Signal Processing and Linear Algebra. Their work will explore filter design, frequency-domain analysis, and the mathematical principles behind these processes, including the use of formulas for signal transformations and frequency responses. This study will serve as the foundation for their research project in audio signal processing and sensing.
       </p>
 
       <div className="flex justify-center my-10">

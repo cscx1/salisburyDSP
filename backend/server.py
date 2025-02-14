@@ -7,6 +7,7 @@ import os
 app = Flask(__name__)
 CORS(app)
 
+# Redirect to entering youtube link
 @app.route("/link", methods=["POST"])
 def print_link():
     data = request.get_json()
@@ -18,16 +19,19 @@ def print_link():
     # max duration in seconds
     max_dur = 600
 
+    # validate the entered content
     if not is_valid_yt(link):
         return jsonify({"result": "Not a valid link."}), 400
 
     if not is_valid_duration(link, max_dur):
         return jsonify({"result": f"Video exceeds maximum duration of {max_dur} seconds."}), 400
 
+    # send the data to validate.py and reutn the result
     input(link, choice)
     print("Downloaded file.")
     return jsonify({"result": "Success", "file_url": f"http://localhost:5000/download"})
 
+# Redirect to downloading file
 @app.route("/download", methods=["GET"])
 def download_file():
     file_path = os.path.join("output", "output.mp3")
