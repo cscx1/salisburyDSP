@@ -3,6 +3,7 @@ from scipy.signal import butter, sosfilt, iirpeak, tf2sos
 import numpy as np
 import os
 import subprocess
+import time
 
 # Low shelf filter
 # Boosts low frequencies below cutoff
@@ -134,9 +135,9 @@ def mids_boost(infile, outfile, boost_db=10, center_freq=1000, bandwidth=1000):
     print(f"Mids boosted audio saved to: {outfile}")
 
 # Download the file here locally
-def download(link, output_folder="input"):
-    os.makedirs(output_folder, exist_ok=True)
-    output_file = os.path.join(output_folder, "input.mp3")
+def download(link, output_file):
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
     command = [
         "yt-dlp",
         "--extract-audio",
@@ -147,22 +148,29 @@ def download(link, output_folder="input"):
         "-o", output_file,
         link
     ]
+
     subprocess.run(command, check=True)
+
     if not os.path.exists(output_file):
         raise FileNotFoundError(f"Download failed: {output_file} was not created.")
+
     return output_file
 
 # This will be called from the frontend
-def input(link, choice):
+def input(link, choice, output_file, input_file):
     os.makedirs("input", exist_ok=True)
     os.makedirs("output", exist_ok=True)
     
-    infile = download(link)
-    outfile = os.path.join("output", "output.mp3")
+    infile = download(link, input_file)  
 
     if choice == 1:
-        bass_boost(infile, outfile)
+        bass_boost(infile, output_file)
     elif choice == 2:
-        mids_boost(infile, outfile)
+        mids_boost(infile, output_file)
     elif choice == 3:
-        high_boost(infile, outfile)
+        high_boost(infile, output_file)
+
+    if os.path.exists(output_file):
+        print(f"Output file saved: {output_file}")
+    else:
+        print(f"Error: Output file missing: {output_file}")

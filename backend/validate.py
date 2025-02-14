@@ -1,6 +1,8 @@
 import subprocess
 import json
 
+# looks for keywords in
+# the inputted link
 def is_valid_yt(link) -> bool:
     keywords = [
         "https",
@@ -14,6 +16,8 @@ def is_valid_yt(link) -> bool:
 
     return True
 
+# validates that the given link
+# is no more than 600 seconds
 def video_duration(link):
     try:
         result = subprocess.run (

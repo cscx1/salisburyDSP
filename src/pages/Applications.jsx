@@ -8,9 +8,9 @@ const Applications = () => {
   const [selectedEffect, setSelectedEffect] = useState(1);
   const [file_url, setFileUrl] = useState("");
 
+  {/* Download the file to the backend */}
   const handleLink = async () => {
     setError("");
-
     try {
       const response = await fetch("http://localhost:5000/link", {
         method: "POST",
@@ -33,6 +33,28 @@ const Applications = () => {
       setError("Failed to connect to backend.");
     }
   };
+
+  {/* Remove the file located in the backend */}
+  const removeFiles = async () => {
+    setError("");
+    try {
+      const response = await fetch("http://localhost:5000/removefiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setError("");
+      } else {
+        setError(data.result);
+      }
+    } catch (err) {
+      console.error("Error connecting to backend: ", err);
+      setError("Failed to connect to backend.");
+    }
+  }
 
   return (
     <>
@@ -81,8 +103,6 @@ const Applications = () => {
           </div>
         )}
 
-        {printedLink && <p className="mt-2">You entered this link: {printedLink}</p>}
-        {error && <p className="text-red-500 mt-2">{error}</p>}
       </div>
     </>
   );
