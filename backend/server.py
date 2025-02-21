@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request, send_file, after_this_request
 from flask_cors import CORS
 from validate import *
 from dsp import *
+from createImage import *
 import os
 import time
 
@@ -14,6 +15,8 @@ def print_link():
     data = request.get_json()
     link = data["link"]
     choice = data.get("choice", 1)
+    start = data.get("start_time")
+    end = data.get("end_time")
 
     timestamp = int(time.time())
     
@@ -34,7 +37,7 @@ def print_link():
         return jsonify({"result": f"Video exceeds maximum duration of {max_dur} seconds."}), 400
 
     # send the data to validate.py and reutn the result
-    input(link, choice, output_file_path, input_file_path)
+    input(link, choice, output_file_path, input_file_path, start, end)
 
     # validate
     if not os.path.exists(output_file_path):
@@ -48,31 +51,37 @@ def print_link():
 @app.route("/download/<filename>", methods=["GET"])
 def download_file(filename):
     output_file_path = os.path.join("output", filename)
-    input_file_path = os.path.join("input", filename.replace("output", "input"))
-
-    print(f"INPUT: {input_file_path} | OUTPUT: {output_file_path}")
-
+    
     if not os.path.exists(output_file_path):
-        print(f"File not found: {output_file_path}")
         return jsonify({"error": "File not found"}), 404
 
-    @after_this_request
-    def remove_file(response):
-        try:
-            os.remove(output_file_path)
-            print(f"Deleted file {output_file_path}")
-        except Exception as e:
-            print(f"Error deleting file {output_file_path}: {e}")
-
-        try:
-            os.remove(input_file_path)
-            print(f"Deleted file {input_file_path}")
-        except Exception as e:
-            print(f"Error deleting file {input_file_path}: {e}")
-        
-        return response 
+    # call fft plot in the future
 
     return send_file(output_file_path, as_attachment=True)
+
+# Delete file after client confirms download
+@app.route("/delete_file/<filename>", methods=["POST"])
+def delete_file(filename):
+    output_file_path = os.path.join("output", filename)
+    input_file_path = os.path.join("input", filename.replace("output", "input"))
+
+    try:
+        os.remove(output_file_path)
+        print(f"Deleted file {output_file_path}")
+    except FileNotFoundError:
+        print(f"File already deleted: {output_file_path}")
+    except Exception as e:
+        print(f"Error deleting file {output_file_path}: {e}")
+
+    try:
+        os.remove(input_file_path)
+        print(f"Deleted file {input_file_path}")
+    except FileNotFoundError:
+        print(f"File already deleted: {input_file_path}")
+    except Exception as e:
+        print(f"Error deleting file {input_file_path}: {e}")
+
+    return jsonify({"message": "File deleted"}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)

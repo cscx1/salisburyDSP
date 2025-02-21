@@ -65,20 +65,18 @@ def mids_peak_filter(samples, boost_db, center_freq, bandwidth, fs):
     return boosted_samples
 
 # Bass boost
-def bass_boost(infile, outfile, boost_db=10, cutoff=150):
+def bass_boost(infile, outfile, boost_db=10, cutoff=150, start_time=0, end_time=None):
     # converts the audio into a mono array of samples
     # normalized into the range -1 to 1
-    audio = AudioSegment.from_file(infile)
-    audio = audio.set_channels(1)
-    samples = np.array(audio.get_array_of_samples())
-    samples = samples / (2 ** (audio.sample_width * 8 - 1))
+    audio = AudioSegment.from_file(infile).set_channels(1)
+    samples = np.array(audio.get_array_of_samples()) / (2 ** (audio.sample_width * 8 - 1))
 
     # applies low shelf filter
     fs = audio.frame_rate
-    boosted_samples = low_shelf_filter(samples, boost_db, cutoff, fs)
+    end_time = end_time if end_time else len(samples) / fs
 
     # applies high shelf filter
-    boosted_samples = high_shelf_filter(boosted_samples, boost_db=5, cutoff=3000, fs=fs)
+    boosted_samples = apply_effect(samples, fs, low_shelf_filter, start_time, end_time, boost_db, cutoff, fs)
 
     # normalizes samples and converts to int format
     boosted_samples = boosted_samples / (np.max(np.abs(boosted_samples)) + 1e-10)
@@ -91,16 +89,17 @@ def bass_boost(infile, outfile, boost_db=10, cutoff=150):
     print(f"Bass boosted audio saved to: {outfile}")
 
 # Highs boost
-def high_boost(infile, outfile, boost_db=10, cutoff=4000):
+def high_boost(infile, outfile, boost_db=10, cutoff=4000, start_time=0, end_time=None):
     # read in and normalize audio
-    audio = AudioSegment.from_file(infile)
-    audio = audio.set_channels(1)
-    samples = np.array(audio.get_array_of_samples())
-    samples = samples / (2 ** (audio.sample_width * 8 - 1))
+    audio = AudioSegment.from_file(infile).set_channels(1)
+    samples = np.array(audio.get_array_of_samples()) / (2 ** (audio.sample_width * 8 - 1))
 
     # high shelf filter
     fs = audio.frame_rate
-    boosted_samples = high_shelf_filter(samples, boost_db, cutoff, fs)
+    end_time = end_time if end_time else len(samples) / fs
+
+    # apply affect
+    boosted_samples = apply_effect(samples, fs, high_shelf_filter, start_time, end_time, boost_db, cutoff, fs)
 
     # normalize and convert back to int format
     boosted_samples = boosted_samples / (np.max(np.abs(boosted_samples)) + 1e-10)
@@ -113,16 +112,17 @@ def high_boost(infile, outfile, boost_db=10, cutoff=4000):
     print(f"High boosted audio saved to: {outfile}")
 
 # Mids enhancing
-def mids_boost(infile, outfile, boost_db=10, center_freq=1000, bandwidth=1000):
+def mids_boost(infile, outfile, boost_db=10, center_freq=1000, bandwidth=1000, start_time=0, end_time=None):
     # read in from file, normalize
-    audio = AudioSegment.from_file(infile)
-    audio = audio.set_channels(1)
-    samples = np.array(audio.get_array_of_samples())
-    samples = samples / (2 ** (audio.sample_width * 8 - 1))
+    audio = AudioSegment.from_file(infile).set_channels(1)
+    samples = np.array(audio.get_array_of_samples()) / (2 ** (audio.sample_width * 8 - 1))
 
     # mid freq boost
     fs = audio.frame_rate
-    boosted_samples = mids_peak_filter(samples, boost_db, center_freq, bandwidth, fs)
+    end_time = end_time if end_time else len(samples) / fs
+
+    # apply affect
+    boosted_samples = apply_effect(samples, fs, mids_peak_filter, start_time, end_time, boost_db, center_freq, bandwidth, fs)
 
     # normalize and convert back to int format
     boosted_samples = boosted_samples / (np.max(np.abs(boosted_samples)) + 1e-10)
@@ -133,6 +133,14 @@ def mids_boost(infile, outfile, boost_db=10, center_freq=1000, bandwidth=1000):
     boosted_audio.export(outfile, format="wav")
 
     print(f"Mids boosted audio saved to: {outfile}")
+
+# Applies effect within time range
+def apply_effect(samples, fs, effect_func, start, end, *args):
+    start_sample = int(start * fs)
+    end_sample = int(end * fs)
+    processed_samples = np.copy(samples)
+    processed_samples[start_sample:end_sample] = effect_func(samples[start_sample:end_sample], *args)
+    return processed_samples
 
 # Download the file here locally
 def download(link, output_file):
@@ -156,19 +164,27 @@ def download(link, output_file):
 
     return output_file
 
+# Get the duration of the audio
+def get_audio_duration(file):
+    audio = AudioSegment.from_file(file)
+    return audio.duration_seconds
+
 # This will be called from the frontend
-def input(link, choice, output_file, input_file):
+def input(link, choice, output_file, input_file, start_time=0, end_time=None):
     os.makedirs("input", exist_ok=True)
     os.makedirs("output", exist_ok=True)
     
     infile = download(link, input_file)  
 
+    if end_time is None:
+        end_time = get_audio_duration(infile)
+
     if choice == 1:
-        bass_boost(infile, output_file)
+        bass_boost(infile, output_file, start_time=start_time, end_time=end_time)
     elif choice == 2:
-        mids_boost(infile, output_file)
+        mids_boost(infile, output_file, start_time=start_time, end_time=end_time)
     elif choice == 3:
-        high_boost(infile, output_file)
+        high_boost(infile, output_file, start_time=start_time, end_time=end_time)
 
     if os.path.exists(output_file):
         print(f"Output file saved: {output_file}")
