@@ -83,8 +83,13 @@ def bass_boost(infile, outfile, boost_db=10, cutoff=150, start_time=0, end_time=
     boosted_samples = (boosted_samples * (2 ** (audio.sample_width * 8 - 1))).astype(np.int16)
 
     # write the modified audio file
-    boosted_audio = audio._spawn(boosted_samples.tobytes())
-    boosted_audio.export(outfile, format="wav")
+    new_audio = AudioSegment(
+        data=boosted_samples.tobytes(),
+        sample_width=audio.sample_width,
+        frame_rate=audio.frame_rate,
+        channels=1
+    )
+    new_audio.export(outfile, format="mp3")
 
     print(f"Bass boosted audio saved to: {outfile}")
 
@@ -106,8 +111,13 @@ def high_boost(infile, outfile, boost_db=10, cutoff=4000, start_time=0, end_time
     boosted_samples = (boosted_samples * (2 ** (audio.sample_width * 8 - 1))).astype(np.int16)
 
     # write the modified audio file
-    boosted_audio = audio._spawn(boosted_samples.tobytes())
-    boosted_audio.export(outfile, format="wav")
+    new_audio = AudioSegment(
+        data=boosted_samples.tobytes(),
+        sample_width=audio.sample_width,
+        frame_rate=audio.frame_rate,
+        channels=1
+    )
+    new_audio.export(outfile, format="mp3")
 
     print(f"High boosted audio saved to: {outfile}")
 
@@ -129,8 +139,13 @@ def mids_boost(infile, outfile, boost_db=10, center_freq=1000, bandwidth=1000, s
     boosted_samples = (boosted_samples * (2 ** (audio.sample_width * 8 - 1))).astype(np.int16)
 
     # write modified audio file
-    boosted_audio = audio._spawn(boosted_samples.tobytes())
-    boosted_audio.export(outfile, format="wav")
+    new_audio = AudioSegment(
+        data=boosted_samples.tobytes(),
+        sample_width=audio.sample_width,
+        frame_rate=audio.frame_rate,
+        channels=1
+    )
+    new_audio.export(outfile, format="mp3")
 
     print(f"Mids boosted audio saved to: {outfile}")
 
@@ -170,11 +185,15 @@ def get_audio_duration(file):
     return audio.duration_seconds
 
 # This will be called from the frontend
-def input(link, choice, output_file, input_file, start_time=0, end_time=None):
+def inputInfo(link, choice, input_file, output_file, start_time=0, end_time=None, do_download=False):
+
     os.makedirs("input", exist_ok=True)
     os.makedirs("output", exist_ok=True)
-    
-    infile = download(link, input_file)  
+
+    if do_download:
+        infile = download(link, input_file)  
+    else:
+        infile = output_file
 
     if end_time is None:
         end_time = get_audio_duration(infile)

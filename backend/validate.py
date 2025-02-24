@@ -31,7 +31,3 @@ def video_duration(link):
     except Exception as e:
         print(f"Error fetching video info: {e}")
         return -1
-
-def is_valid_duration(link, max_dur=600):
-    # Ensure video does no exceed 600 seconds (10 minutes)
-    return 0 <= video_duration(link) <= max_dur
