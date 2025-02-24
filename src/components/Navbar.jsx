@@ -3,6 +3,7 @@ import { useState } from "react";
 import cover from "../assets/cover.png";
 import { navItems } from "../constants";
 import { Link } from "react-router-dom"; {/*To link different pages*/}
+import { motion, AnimatePresence } from "framer-motion";
 
 const Navbar = () => {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
