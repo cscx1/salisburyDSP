@@ -39,6 +39,10 @@ const Applications = () => {
     setEffects(newEffects);
   };
 
+  const removeEffectRow = (index) => {
+    setEffects(effects.filter((_, i) => i !== index));
+  }
+
   {/* Download the file to the backend */}
   const handleLink = async () => {
 
@@ -103,6 +107,7 @@ const Applications = () => {
         <h3 className="font-bold">Effects:</h3>
         {effects.map((effect, index) => (
           <div key={index} className="flex items-center mt-2">
+
             {/* Dropdown for effect selection */}
             <select
               value={effect.effectType}
@@ -115,40 +120,53 @@ const Applications = () => {
               <option value={2}>Mids Boost</option>
               <option value={3}>High Boost</option>
             </select>
+
             {/* Input for effect start time */}
             <input
               type="number"
-              placeholder="Start time (s)"
+              placeholder="Start (s)"
               value={effect.start}
               onChange={(e) => updateEffect(index, "start", e.target.value)}
               className="border p-2 mr-2 w-24"
             />
+
             {/* Input for effect end time */}
             <input
               type="number"
-              placeholder="End time (s)"
+              placeholder="End (s)"
               value={effect.end}
               onChange={(e) => updateEffect(index, "end", e.target.value)}
               className="border p-2 mr-2 w-24"
             />
+
+            {/* Remove button */}
+            <button 
+              onClick={() => removeEffectRow(index)}
+              className="bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600"
+            >
+              Remove
+            </button>
+
           </div>
         ))}
         
-        {/* Button to add a new effect row */}
-        <button
-          onClick={addEffectRow}
-          className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 mt-2"
-        >
-          New Row
-        </button>
-  
-          {/* Submit Button */}
+        <div className="flex flex-col gap-4 mt-4">
+          {/* Button to add a new effect row */}
           <button
-            onClick={handleLink}
-            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 mt-4"
+            onClick={addEffectRow}
+            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-fit"
           >
-            Submit
+            New Row
           </button>
+    
+            {/* Submit Button */}
+            <button
+              onClick={handleLink}
+              className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 w-fit"
+            >
+              Submit
+            </button>
+          </div>
         </div>
   
         {/* Error Message */}

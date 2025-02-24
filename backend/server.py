@@ -31,6 +31,7 @@ def schedule_deletion(outputFile, inputFile, delay):
 
     Timer(delay, delete_files).start()
 
+# Function to apply effects
 def apply_effects(link, effects, inputFile, outputFile):
     # Process the first effect: download and apply the effect.
     print("Processing first effect:", effects[0]["effectType"])
@@ -42,7 +43,6 @@ def apply_effects(link, effects, inputFile, outputFile):
         print(f"Processing effect {effect['effectType']} in place on file: {outputFile}")
         inputInfo(link, effect["effectType"], outputFile, outputFile,
                   effect.get("start", 0), effect.get("end"), do_download=False)
-
 
 # Redirect to entering youtube link
 @app.route("/link", methods=["POST"])
