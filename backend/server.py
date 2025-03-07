@@ -124,12 +124,68 @@ def print_link():
         print(f"Error: Processed file was not created: {output_file_path}")
         return jsonify({"error": "Processing failed; No file created"}), 500
 
-    # Schedule deletion of files
-    delay = 30
-    schedule_deletion(output_file_path, input_file_path, delay)
-
     print("Downloaded file.")
-    return jsonify({"result": "Success", "file_url": f"http://localhost:5000/download/{output_filename}"})
+    
+    # Generate FFT and spectrogram plots BEFORE scheduling deletion
+    try:
+        plots = []
+        for effect in effects:
+            input_time, output_time = plot_fft(
+                input_file_path, 
+                output_file_path, 
+                effect["effectType"],
+                effect["start"],
+                effect["end"]
+            )
+            spectrogram = create_spectrogram(
+                output_file_path, 
+                effect["effectType"],
+                effect["start"],
+                effect["end"]
+            )
+            plots.append({
+                "effect_type": effect["effectType"],
+                "time_range": f"{effect['start']}-{effect['end']}",
+                "input_plot": f"http://localhost:5000/plot/{os.path.basename(input_time)}",
+                "output_plot": f"http://localhost:5000/plot/{os.path.basename(output_time)}",
+                "spectrogram": f"http://localhost:5000/plot/{os.path.basename(spectrogram)}"
+            })
+            
+        # Schedule deletion of files AFTER generating plots
+        delay = 30
+        schedule_deletion(output_file_path, input_file_path, delay)
+        
+        # Schedule deletion of plot files
+        for plot in plots:
+            input_plot = plot["input_plot"].split("/")[-1]
+            output_plot = plot["output_plot"].split("/")[-1]
+            spec_plot = plot["spectrogram"].split("/")[-1]
+            
+            schedule_deletion(
+                os.path.join("DSPinput", input_plot),
+                os.path.join("DSPoutput", output_plot),
+                delay
+            )
+            schedule_deletion(
+                os.path.join("DSPoutput", spec_plot),
+                None,
+                delay
+            )
+        
+        return jsonify({
+            "result": "Success", 
+            "file_url": f"http://localhost:5000/download/{output_filename}",
+            "plots": plots
+        })
+    except Exception as e:
+        print(f"Error generating plots: {e}")
+        # Schedule deletion of audio files if plot generation fails
+        delay = 30
+        schedule_deletion(output_file_path, input_file_path, delay)
+        return jsonify({
+            "result": "Success", 
+            "file_url": f"http://localhost:5000/download/{output_filename}"
+        })
 
 # Redirect to downloading file
 @app.route("/download/<filename>", methods=["GET"])
@@ -166,6 +222,19 @@ def delete_file(filename):
         print(f"Error deleting file {input_file_path}: {e}")
 
     return jsonify({"message": "File deleted"}), 200
+
+# Add new route to serve plot images
+@app.route("/plot/<filename>", methods=["GET"])
+def serve_plot(filename):
+    # First check DSPoutput directory
+    plot_path = os.path.join("DSPoutput", filename)
+    if not os.path.exists(plot_path):
+        # Then check DSPinput directory
+        plot_path = os.path.join("DSPinput", filename)
+        if not os.path.exists(plot_path):
+            return jsonify({"error": "Plot not found"}), 404
+    
+    return send_file(plot_path, mimetype='image/png')
 
 if __name__ == "__main__":
     app.run(debug=True)

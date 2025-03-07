@@ -10,17 +10,22 @@ const Applications = () => {
   const [end, setEnd] = useState("");
   const [loading, setLoading] = useState(false);
   const [downloadExpired, setDownloadExpired] = useState(false);
+  const [fftPlot, setFftPlot] = useState("");
+  const [spectrogram, setSpectrogram] = useState("");
+  const [plots, setPlots] = useState([]);
 
   {/* Function to reset inputs */}
   const resetInputs = () => {
     setLink("");
     setPrintedLink("");
-    setFileUrl("")
+    setFileUrl("");
     setStart("");
     setEnd("");
     setError("");
     setDownloadExpired(false);
-    setEffects([{ effectType: 1, start: "", end: ""}]);
+    setFftPlot("");
+    setSpectrogram("");
+    setPlots([]);
   };
 
   {/* Array of effect objects */}
@@ -45,7 +50,6 @@ const Applications = () => {
 
   {/* Download the file to the backend */}
   const handleLink = async () => {
-
     setError("");
     setLoading(true);
     setDownloadExpired(false);
@@ -66,13 +70,7 @@ const Applications = () => {
         setFileUrl(data.file_url)
         setPrintedLink(data.result);
         setError("");
-
-        setTimeout(() => {
-          setDownloadExpired(true);
-          setFileUrl("");
-          setPrintedLink("");
-          setError("Download time expired -- the file has been deleted.")
-        }, 30000);
+        if (data.plots) setPlots(data.plots);
       } else {
         setPrintedLink("");
         setError(data.error);
@@ -83,6 +81,25 @@ const Applications = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Function to handle cleanup and starting over
+  const handleStartOver = async () => {
+    if (file_url) {
+      try {
+        const deleteResponse = await fetch(
+          `http://localhost:5000/delete_file/${file_url.split("/").pop()}`,
+          { method: "POST" }
+        );
+
+        if (!deleteResponse.ok) {
+          console.log("Error deleting file");
+        }
+      } catch (err) {
+        console.error("Error during cleanup:", err);
+      }
+    }
+    resetInputs();
   };
 
   return (
@@ -205,32 +222,63 @@ const Applications = () => {
           </div>
         )}
   
-        {/* Download Button (only if file is available and not expired) */}
+        {/* Download Button and Plots (only if file is available and not expired) */}
         {file_url && !downloadExpired && (
-          <div className="mt-4">
-            <a
-              href={file_url}
-              download
-              className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600"
-              onClick={async () => {
-                await new Promise((resolve) => setTimeout(resolve, 5000));
-  
-                const deleteResponse = await fetch(
-                  `http://localhost:5000/delete_file/${file_url.split("/").pop()}`,
-                  { method: "POST" }
-                );
-  
-                if (deleteResponse.ok) {
-                  console.log("File successfully deleted");
-                } else {
-                  console.log("Error deleting file");
-                }
-  
-                resetInputs();
-              }}
-            >
-              Download Processed File
-            </a>
+          <div className="mt-4 space-y-4">
+            <div className="flex gap-4">
+              <a
+                href={file_url}
+                download
+                className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 block w-fit"
+              >
+                Download Processed File
+              </a>
+              
+              {/* Add Start Over button */}
+              <button
+                onClick={handleStartOver}
+                className="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 block w-fit"
+              >
+                Start Over
+              </button>
+            </div>
+
+            {plots.map((plot, index) => (
+              <div key={index} className="mt-8 space-y-4">
+                <h3 className="text-lg font-semibold">
+                  Effect {index + 1}: Time Range {plot.time_range}s
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-md font-medium mb-2">Input Signal</h4>
+                    <img 
+                      src={plot.input_plot} 
+                      alt="Input Signal" 
+                      className="max-w-full h-auto rounded-lg shadow-lg"
+                    />
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-md font-medium mb-2">Output Signal</h4>
+                    <img 
+                      src={plot.output_plot} 
+                      alt="Output Signal" 
+                      className="max-w-full h-auto rounded-lg shadow-lg"
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <h4 className="text-md font-medium mb-2">Spectrogram</h4>
+                    <img 
+                      src={plot.spectrogram} 
+                      alt="Spectrogram" 
+                      className="max-w-full h-auto rounded-lg shadow-lg"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

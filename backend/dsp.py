@@ -1,9 +1,31 @@
-from pydub import AudioSegment
-from scipy.signal import butter, sosfilt, iirpeak, tf2sos
 import numpy as np
+from scipy.signal import butter, sosfilt, iirpeak, tf2sos
+from scipy.io import wavfile
 import os
 import subprocess
 import time
+
+def convert_to_wav(input_file, output_file):
+    """Convert audio file to WAV format using ffmpeg"""
+    output_wav = output_file.rsplit('.', 1)[0] + '.wav'
+    subprocess.run([
+        'ffmpeg', '-i', input_file,
+        '-acodec', 'pcm_s16le',
+        '-ar', '44100',
+        '-y',  # Overwrite output file if it exists
+        output_wav
+    ], check=True, capture_output=True)
+    return output_wav
+
+def convert_to_mp3(input_wav, output_mp3):
+    """Convert WAV to MP3 format using ffmpeg"""
+    subprocess.run([
+        'ffmpeg', '-i', input_wav,
+        '-codec:a', 'libmp3lame',
+        '-qscale:a', '2',
+        '-y',  # Overwrite output file if it exists
+        output_mp3
+    ], check=True, capture_output=True)
 
 # Low shelf filter
 # Boosts low frequencies below cutoff
@@ -64,98 +86,58 @@ def mids_peak_filter(samples, boost_db, center_freq, bandwidth, fs):
 
     return boosted_samples
 
+def process_audio(input_file, output_file, effect_func, *args):
+    """Process audio with the given effect function"""
+    # Convert input to WAV
+    input_wav = convert_to_wav(input_file, input_file)
+    
+    try:
+        # Read the WAV file
+        fs, samples = wavfile.read(input_wav)
+        
+        # Convert to mono if stereo
+        if len(samples.shape) > 1:
+            samples = np.mean(samples, axis=1)
+        
+        # Convert to float32 and normalize
+        samples = samples.astype(np.float32)
+        samples = samples / np.max(np.abs(samples))
+        
+        # Apply the effect
+        processed = effect_func(samples, *args)
+        
+        # Normalize and convert back to int16
+        processed = processed / np.max(np.abs(processed))
+        processed = (processed * 32767).astype(np.int16)
+        
+        # Save as temporary WAV
+        temp_wav = output_file.rsplit('.', 1)[0] + '_temp.wav'
+        wavfile.write(temp_wav, fs, processed)
+        
+        # Convert to MP3
+        convert_to_mp3(temp_wav, output_file)
+        
+        # Clean up temporary files
+        os.remove(input_wav)
+        os.remove(temp_wav)
+        
+    except Exception as e:
+        print(f"Error processing audio: {e}")
+        if os.path.exists(input_wav):
+            os.remove(input_wav)
+        raise
+
 # Bass boost
 def bass_boost(infile, outfile, boost_db=10, cutoff=150, start_time=0, end_time=None):
-    # converts the audio into a mono array of samples
-    # normalized into the range -1 to 1
-    audio = AudioSegment.from_file(infile).set_channels(1)
-    samples = np.array(audio.get_array_of_samples()) / (2 ** (audio.sample_width * 8 - 1))
-
-    # applies low shelf filter
-    fs = audio.frame_rate
-    end_time = end_time if end_time else len(samples) / fs
-
-    # applies high shelf filter
-    boosted_samples = apply_effect(samples, fs, low_shelf_filter, start_time, end_time, boost_db, cutoff, fs)
-
-    # normalizes samples and converts to int format
-    boosted_samples = boosted_samples / (np.max(np.abs(boosted_samples)) + 1e-10)
-    boosted_samples = (boosted_samples * (2 ** (audio.sample_width * 8 - 1))).astype(np.int16)
-
-    # write the modified audio file
-    new_audio = AudioSegment(
-        data=boosted_samples.tobytes(),
-        sample_width=audio.sample_width,
-        frame_rate=audio.frame_rate,
-        channels=1
-    )
-    new_audio.export(outfile, format="mp3")
-
-    print(f"Bass boosted audio saved to: {outfile}")
+    process_audio(infile, outfile, low_shelf_filter, boost_db, cutoff, 44100)
 
 # Highs boost
 def high_boost(infile, outfile, boost_db=10, cutoff=4000, start_time=0, end_time=None):
-    # read in and normalize audio
-    audio = AudioSegment.from_file(infile).set_channels(1)
-    samples = np.array(audio.get_array_of_samples()) / (2 ** (audio.sample_width * 8 - 1))
-
-    # high shelf filter
-    fs = audio.frame_rate
-    end_time = end_time if end_time else len(samples) / fs
-
-    # apply affect
-    boosted_samples = apply_effect(samples, fs, high_shelf_filter, start_time, end_time, boost_db, cutoff, fs)
-
-    # normalize and convert back to int format
-    boosted_samples = boosted_samples / (np.max(np.abs(boosted_samples)) + 1e-10)
-    boosted_samples = (boosted_samples * (2 ** (audio.sample_width * 8 - 1))).astype(np.int16)
-
-    # write the modified audio file
-    new_audio = AudioSegment(
-        data=boosted_samples.tobytes(),
-        sample_width=audio.sample_width,
-        frame_rate=audio.frame_rate,
-        channels=1
-    )
-    new_audio.export(outfile, format="mp3")
-
-    print(f"High boosted audio saved to: {outfile}")
+    process_audio(infile, outfile, high_shelf_filter, boost_db, cutoff, 44100)
 
 # Mids enhancing
 def mids_boost(infile, outfile, boost_db=10, center_freq=1000, bandwidth=1000, start_time=0, end_time=None):
-    # read in from file, normalize
-    audio = AudioSegment.from_file(infile).set_channels(1)
-    samples = np.array(audio.get_array_of_samples()) / (2 ** (audio.sample_width * 8 - 1))
-
-    # mid freq boost
-    fs = audio.frame_rate
-    end_time = end_time if end_time else len(samples) / fs
-
-    # apply affect
-    boosted_samples = apply_effect(samples, fs, mids_peak_filter, start_time, end_time, boost_db, center_freq, bandwidth, fs)
-
-    # normalize and convert back to int format
-    boosted_samples = boosted_samples / (np.max(np.abs(boosted_samples)) + 1e-10)
-    boosted_samples = (boosted_samples * (2 ** (audio.sample_width * 8 - 1))).astype(np.int16)
-
-    # write modified audio file
-    new_audio = AudioSegment(
-        data=boosted_samples.tobytes(),
-        sample_width=audio.sample_width,
-        frame_rate=audio.frame_rate,
-        channels=1
-    )
-    new_audio.export(outfile, format="mp3")
-
-    print(f"Mids boosted audio saved to: {outfile}")
-
-# Applies effect within time range
-def apply_effect(samples, fs, effect_func, start, end, *args):
-    start_sample = int(start * fs)
-    end_sample = int(end * fs)
-    processed_samples = np.copy(samples)
-    processed_samples[start_sample:end_sample] = effect_func(samples[start_sample:end_sample], *args)
-    return processed_samples
+    process_audio(infile, outfile, mids_peak_filter, boost_db, center_freq, bandwidth, 44100)
 
 # Download the file here locally
 def download(link, output_file):
@@ -181,8 +163,14 @@ def download(link, output_file):
 
 # Get the duration of the audio
 def get_audio_duration(file):
-    audio = AudioSegment.from_file(file)
-    return audio.duration_seconds
+    """Get duration of audio file using ffmpeg"""
+    result = subprocess.run([
+        'ffprobe', '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        file
+    ], capture_output=True, text=True)
+    return float(result.stdout)
 
 # This will be called from the frontend
 def inputInfo(link, choice, input_file, output_file, start_time=0, end_time=None, do_download=False):
