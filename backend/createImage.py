@@ -6,6 +6,7 @@ from scipy.fft import fft, fftfreq
 from scipy.io import wavfile
 import os
 import subprocess
+import json
 
 # Set dark theme for all plots
 plt.style.use('dark_background')
@@ -228,3 +229,92 @@ def create_spectrogram(audio_file, effect_type, start_time, end_time):
         if os.path.exists(audio_wav):
             os.remove(audio_wav)
         raise
+
+def analyze_audio(input_file, output_file, effect_type, start_time, end_time):
+    """Analyze audio and return data for D3 visualization"""
+    # Convert MP3s to WAV for processing
+    input_wav = convert_to_wav(input_file, input_file)
+    output_wav = convert_to_wav(output_file, output_file)
+
+    try:
+        # Load audio files
+        fs_in, samples_in = wavfile.read(input_wav)
+        fs_out, samples_out = wavfile.read(output_wav)
+
+        # Convert to mono if stereo
+        if len(samples_in.shape) > 1:
+            samples_in = np.mean(samples_in, axis=1)
+        if len(samples_out.shape) > 1:
+            samples_out = np.mean(samples_out, axis=1)
+
+        # Get time window
+        start_idx = int(start_time * fs_in)
+        end_idx = int(end_time * fs_in)
+        
+        # Get samples for the time window
+        window_in = samples_in[start_idx:end_idx]
+        window_out = samples_out[start_idx:end_idx]
+
+        # Compute FFT
+        n = len(window_in)
+        freqs = fftfreq(n, 1/fs_in)
+        mask = freqs >= 0  # Only positive frequencies
+
+        # Compute power spectrum
+        fft_in = np.abs(fft(window_in))**2
+        fft_out = np.abs(fft(window_out))**2
+
+        # Normalize power spectrums
+        fft_in = 10 * np.log10(fft_in / np.max(fft_in) + 1e-10)
+        fft_out = 10 * np.log10(fft_out / np.max(fft_out) + 1e-10)
+
+        # Compute frequency response
+        freq_response = fft_out - fft_in
+
+        # Create frequency ranges based on effect type
+        freq_ranges = {
+            1: {"name": "Bass Boost", "range": (20, 250)},
+            2: {"name": "Mids Boost", "range": (250, 4000)},
+            3: {"name": "High Boost", "range": (4000, 20000)}
+        }
+
+        # Prepare time domain data (downsample for visualization)
+        step = max(len(window_in) // 1000, 1)
+        time_points = np.arange(start_time, end_time, (end_time - start_time)/len(window_in))[::step]
+        samples_in = window_in[::step]
+        samples_out = window_out[::step]
+
+        # Prepare frequency domain data
+        freq_points = freqs[mask][::step]
+        power_in = fft_in[mask][::step]
+        power_out = fft_out[mask][::step]
+        response = freq_response[mask][::step]
+
+        # Create data structure for D3
+        visualization_data = {
+            "timeDomain": {
+                "time": time_points.tolist(),
+                "input": samples_in.tolist(),
+                "output": samples_out.tolist()
+            },
+            "frequencyDomain": {
+                "frequencies": freq_points.tolist(),
+                "powerInput": power_in.tolist(),
+                "powerOutput": power_out.tolist(),
+                "frequencyResponse": response.tolist()
+            },
+            "effectInfo": {
+                "type": effect_type,
+                "name": freq_ranges[effect_type]["name"],
+                "range": freq_ranges[effect_type]["range"]
+            }
+        }
+
+        return visualization_data
+
+    finally:
+        # Clean up temporary WAV files
+        if os.path.exists(input_wav):
+            os.remove(input_wav)
+        if os.path.exists(output_wav):
+            os.remove(output_wav)

@@ -6,6 +6,7 @@ from createImage import *
 import os
 import time
 from threading import Timer
+import shutil
 
 app = Flask(__name__)
 CORS(app)
@@ -33,16 +34,27 @@ def schedule_deletion(outputFile, inputFile, delay):
 
 # Function to apply effects
 def apply_effects(link, effects, inputFile, outputFile):
-    # Process the first effect: download and apply the effect.
-    print("Processing first effect:", effects[0]["effectType"])
+    # First, download the file
+    print("Downloading file...")
     inputInfo(link, effects[0]["effectType"], inputFile, outputFile,
               effects[0].get("start", 0), effects[0].get("end"), do_download=True)
     
-    # Process any subsequent effects in place using the same file for both input and output.
+    # Make a copy of the original input file before processing
+    original_input = inputFile.replace('.mp3', '_original.mp3')
+    shutil.copy2(inputFile, original_input)
+    
+    # Now process the effects
+    print("Processing first effect:", effects[0]["effectType"])
+    inputInfo(link, effects[0]["effectType"], inputFile, outputFile,
+              effects[0].get("start", 0), effects[0].get("end"), do_download=False)
+    
+    # Process any subsequent effects
     for effect in effects[1:]:
         print(f"Processing effect {effect['effectType']} in place on file: {outputFile}")
         inputInfo(link, effect["effectType"], outputFile, outputFile,
                   effect.get("start", 0), effect.get("end"), do_download=False)
+    
+    return original_input
 
 # Redirect to entering youtube link
 @app.route("/link", methods=["POST"])
@@ -114,68 +126,25 @@ def print_link():
 
     # send the data to validate.py and reutn the result
     try:
-        apply_effects(link, effects, input_file_path, output_file_path)
-    except Exception as e:
-        print(f"Error during processing: {e}")
-        return jsonify({"error": "Processing failed."}), 500
+        # Apply effects and get the original input file path
+        original_input = apply_effects(link, effects, input_file_path, output_file_path)
 
-    # validate the file was outputted correctly
-    if not os.path.exists(output_file_path):
-        print(f"Error: Processed file was not created: {output_file_path}")
-        return jsonify({"error": "Processing failed; No file created"}), 500
-
-    print("Downloaded file.")
-    
-    # Generate FFT and spectrogram plots BEFORE scheduling deletion
-    try:
-        plots = []
+        # Generate visualization data
+        visualizations = []
         for effect in effects:
-            input_time, output_time = plot_fft(
-                input_file_path, 
-                output_file_path, 
+            viz_data = analyze_audio(
+                original_input,
+                output_file_path,
                 effect["effectType"],
                 effect["start"],
                 effect["end"]
             )
-            spectrogram = create_spectrogram(
-                output_file_path, 
-                effect["effectType"],
-                effect["start"],
-                effect["end"]
-            )
-            plots.append({
-                "effect_type": effect["effectType"],
-                "time_range": f"{effect['start']}-{effect['end']}",
-                "input_plot": f"http://localhost:5000/plot/{os.path.basename(input_time)}",
-                "output_plot": f"http://localhost:5000/plot/{os.path.basename(output_time)}",
-                "spectrogram": f"http://localhost:5000/plot/{os.path.basename(spectrogram)}"
-            })
-            
-        # Schedule deletion of files AFTER generating plots
-        delay = 30
-        schedule_deletion(output_file_path, input_file_path, delay)
-        
-        # Schedule deletion of plot files
-        for plot in plots:
-            input_plot = plot["input_plot"].split("/")[-1]
-            output_plot = plot["output_plot"].split("/")[-1]
-            spec_plot = plot["spectrogram"].split("/")[-1]
-            
-            schedule_deletion(
-                os.path.join("DSPinput", input_plot),
-                os.path.join("DSPoutput", output_plot),
-                delay
-            )
-            schedule_deletion(
-                os.path.join("DSPoutput", spec_plot),
-                None,
-                delay
-            )
-        
+            visualizations.append(viz_data)
+
         return jsonify({
             "result": "Success", 
             "file_url": f"http://localhost:5000/download/{output_filename}",
-            "plots": plots
+            "visualizations": visualizations
         })
     except Exception as e:
         print(f"Error generating plots: {e}")

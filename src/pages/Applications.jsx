@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import AudioVisualizer from '../components/AudioVisualizer';
 
 const Applications = () => {
 
@@ -13,6 +14,7 @@ const Applications = () => {
   const [fftPlot, setFftPlot] = useState("");
   const [spectrogram, setSpectrogram] = useState("");
   const [plots, setPlots] = useState([]);
+  const [visualizations, setVisualizations] = useState([]);
 
   {/* Function to reset inputs */}
   const resetInputs = () => {
@@ -26,6 +28,7 @@ const Applications = () => {
     setFftPlot("");
     setSpectrogram("");
     setPlots([]);
+    setVisualizations([]);
   };
 
   {/* Array of effect objects */}
@@ -70,7 +73,9 @@ const Applications = () => {
         setFileUrl(data.file_url)
         setPrintedLink(data.result);
         setError("");
-        if (data.plots) setPlots(data.plots);
+        if (data.visualizations) {
+          setVisualizations(data.visualizations);
+        }
       } else {
         setPrintedLink("");
         setError(data.error);
@@ -243,40 +248,15 @@ const Applications = () => {
               </button>
             </div>
 
-            {plots.map((plot, index) => (
-              <div key={index} className="mt-8 space-y-4">
-                <h3 className="text-lg font-semibold">
-                  Effect {index + 1}: Time Range {plot.time_range}s
+            {visualizations.map((vizData, index) => (
+              <div key={index} className="mt-8 p-4 border rounded-lg">
+                <h3 className="text-xl font-semibold mb-4">
+                  Effect {index + 1}: {vizData.effectInfo.name}
+                  <span className="text-sm font-normal ml-2">
+                    (Time Range: {effects[index].start}s - {effects[index].end}s)
+                  </span>
                 </h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-md font-medium mb-2">Input Signal</h4>
-                    <img 
-                      src={plot.input_plot} 
-                      alt="Input Signal" 
-                      className="max-w-full h-auto rounded-lg shadow-lg"
-                    />
-                  </div>
-                  
-                  <div>
-                    <h4 className="text-md font-medium mb-2">Output Signal</h4>
-                    <img 
-                      src={plot.output_plot} 
-                      alt="Output Signal" 
-                      className="max-w-full h-auto rounded-lg shadow-lg"
-                    />
-                  </div>
-                  
-                  <div className="md:col-span-2">
-                    <h4 className="text-md font-medium mb-2">Spectrogram</h4>
-                    <img 
-                      src={plot.spectrogram} 
-                      alt="Spectrogram" 
-                      className="max-w-full h-auto rounded-lg shadow-lg"
-                    />
-                  </div>
-                </div>
+                <AudioVisualizer data={vizData} />
               </div>
             ))}
           </div>
