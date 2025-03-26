@@ -20,9 +20,9 @@ def wait_for_file(filepath, timeout=15):
         time.sleep(0.1)
 
 # Schedule deletion of files after 30 seconds
-def schedule_deletion(outputFile, inputFile, delay):
+def schedule_deletion(outputFile, inputFile, originalFile, delay):
     def delete_files():
-        for file in [outputFile, inputFile]:
+        for file in [outputFile, inputFile, originalFile]:
             try:
                 if os.path.exists(file):
                     os.remove(file)
@@ -40,8 +40,9 @@ def apply_effects(link, effects, inputFile, outputFile):
               effects[0].get("start", 0), effects[0].get("end"), do_download=True)
     
     # Make a copy of the original input file before processing
-    original_input = inputFile.replace('.mp3', '_original.mp3')
-    shutil.copy2(inputFile, original_input)
+    original_filename = os.path.basename(outputFile).replace('output_', 'original_')
+    original_file_path = os.path.join('output', original_filename)
+    shutil.copy2(inputFile, original_file_path)
     
     # Now process the effects
     print("Processing first effect:", effects[0]["effectType"])
@@ -54,7 +55,7 @@ def apply_effects(link, effects, inputFile, outputFile):
         inputInfo(link, effect["effectType"], outputFile, outputFile,
                   effect.get("start", 0), effect.get("end"), do_download=False)
     
-    return original_input
+    return inputFile, original_file_path
 
 # Redirect to entering youtube link
 @app.route("/link", methods=["POST"])
@@ -90,6 +91,8 @@ def print_link():
     input_file_path = os.path.join("input", input_filename)
     output_filename = f"output_{timestamp}.mp3"
     output_file_path = os.path.join("output", output_filename)
+    original_filename = f"original_{timestamp}.mp3"
+    original_file_path = os.path.join("output", original_filename)
 
     # variables needed for validity
     max_dur = 600
@@ -127,13 +130,13 @@ def print_link():
     # send the data to validate.py and reutn the result
     try:
         # Apply effects and get the original input file path
-        original_input = apply_effects(link, effects, input_file_path, output_file_path)
+        input_file, original_file_path = apply_effects(link, effects, input_file_path, output_file_path)
 
         # Generate visualization data
         visualizations = []
         for effect in effects:
             viz_data = analyze_audio(
-                original_input,
+                input_file,
                 output_file_path,
                 effect["effectType"],
                 effect["start"],
@@ -144,16 +147,18 @@ def print_link():
         return jsonify({
             "result": "Success", 
             "file_url": f"http://localhost:5000/download/{output_filename}",
+            "original_file_url": f"http://localhost:5000/download/{original_filename}",
             "visualizations": visualizations
         })
     except Exception as e:
         print(f"Error generating plots: {e}")
         # Schedule deletion of audio files if plot generation fails
         delay = 30
-        schedule_deletion(output_file_path, input_file_path, delay)
+        schedule_deletion(output_file_path, input_file_path, original_file_path, delay)
         return jsonify({
             "result": "Success", 
-            "file_url": f"http://localhost:5000/download/{output_filename}"
+            "file_url": f"http://localhost:5000/download/{output_filename}",
+            "original_file_url": f"http://localhost:5000/download/{original_filename}"
         })
 
 # Redirect to downloading file
@@ -164,31 +169,39 @@ def download_file(filename):
     if not os.path.exists(output_file_path):
         return jsonify({"error": "File not found"}), 404
 
-    # call fft plot in the future
-
-    return send_file(output_file_path, as_attachment=True)
+    # Add CORS headers for audio streaming
+    response = send_file(output_file_path, as_attachment=True)
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,OPTIONS')
+    
+    return response
 
 # Delete file after client confirms download
 @app.route("/delete_file/<filename>", methods=["POST"])
 def delete_file(filename):
     output_file_path = os.path.join("output", filename)
-    input_file_path = os.path.join("input", filename.replace("output", "input"))
+    
+    # Handle both input and original files
+    if filename.startswith("output_"):
+        input_file_path = os.path.join("input", filename.replace("output_", "input_"))
+        original_file_path = os.path.join("output", filename.replace("output_", "original_"))
+        
+        files_to_delete = [output_file_path, input_file_path, original_file_path]
+    elif filename.startswith("original_"):
+        # Don't delete other files when deleting original
+        files_to_delete = [output_file_path]
+    else:
+        files_to_delete = [output_file_path]
 
-    try:
-        os.remove(output_file_path)
-        print(f"Deleted file {output_file_path}")
-    except FileNotFoundError:
-        print(f"File already deleted: {output_file_path}")
-    except Exception as e:
-        print(f"Error deleting file {output_file_path}: {e}")
-
-    try:
-        os.remove(input_file_path)
-        print(f"Deleted file {input_file_path}")
-    except FileNotFoundError:
-        print(f"File already deleted: {input_file_path}")
-    except Exception as e:
-        print(f"Error deleting file {input_file_path}: {e}")
+    for file_path in files_to_delete:
+        try:
+            os.remove(file_path)
+            print(f"Deleted file {file_path}")
+        except FileNotFoundError:
+            print(f"File already deleted: {file_path}")
+        except Exception as e:
+            print(f"Error deleting file {file_path}: {e}")
 
     return jsonify({"message": "File deleted"}), 200
 
