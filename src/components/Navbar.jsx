@@ -17,8 +17,9 @@ const Navbar = () => {
       <div className="container px-4 mx-auto relative lg:text-sm">
         <div className="flex justify-between items-center">
           <div className="flex items-center flex-shrink-0">
-           {/* <img className="h-10 w-30 mr-2" src={cover} alt="Logo"  />*/}
-            <span className="text-xl tracking-tight">Salisbury DSP</span>
+          <a href="/" className="text-xl tracking-tight text-white hover:text-red-600 transition">
+            Salisbury DSP 
+          </a>
           </div>
 
           <ul className="hidden lg:flex space-x-12 justify-center items-center mx-auto">

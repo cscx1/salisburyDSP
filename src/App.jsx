@@ -1,7 +1,6 @@
 // import React from 'react'
 import HeroSection from './components/HeroSection';
 import Navbar from './components/Navbar'
-import ChatbotIcon from './components/ChatbotIcon';
 import { Routes, Route } from "react-router-dom";
 import Footer from "./components/Footer";
  

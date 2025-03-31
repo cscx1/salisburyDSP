@@ -15,11 +15,11 @@ CORS(app)
 def wait_for_file(filepath, timeout=15):
     start_time = time.time()
     while not os.path.exists(filepath):
-        if time.time - start_time > timeout:
+        if (time.time() - start_time) > timeout:
             raise TimeoutError(f"File {filepath} did not appear within {timeout} seconds")
         time.sleep(0.1)
-
-# Schedule deletion of files after 30 seconds
+        
+# Schedule deletion of output folder after 30 seconds
 def schedule_deletion(outputFile, inputFile, originalFile, delay):
     def delete_files():
         for file in [outputFile, inputFile, originalFile]:
@@ -36,26 +36,51 @@ def schedule_deletion(outputFile, inputFile, originalFile, delay):
 def apply_effects(link, effects, inputFile, outputFile):
     # First, download the file
     print("Downloading file...")
-    inputInfo(link, effects[0]["effectType"], inputFile, outputFile,
-              effects[0].get("start", 0), effects[0].get("end"), do_download=True)
-    
+    inputInfo(
+        link,
+        effects[0]["effectType"],
+        inputFile,
+        outputFile,
+        effects[0].get("start", 0),
+        effects[0].get("end"),
+        do_download=True,
+        **effects[0].get("settings", {})
+    )
+
     # Make a copy of the original input file before processing
     original_filename = os.path.basename(outputFile).replace('output_', 'original_')
     original_file_path = os.path.join('output', original_filename)
     shutil.copy2(inputFile, original_file_path)
-    
-    # Now process the effects
+
+    # Now process the first effect
     print("Processing first effect:", effects[0]["effectType"])
-    inputInfo(link, effects[0]["effectType"], inputFile, outputFile,
-              effects[0].get("start", 0), effects[0].get("end"), do_download=False)
-    
+    inputInfo(
+        link,
+        effects[0]["effectType"],
+        inputFile,
+        outputFile,
+        effects[0].get("start", 0),
+        effects[0].get("end"),
+        do_download=False,
+        **effects[0].get("settings", {})
+    )
+
     # Process any subsequent effects
     for effect in effects[1:]:
         print(f"Processing effect {effect['effectType']} in place on file: {outputFile}")
-        inputInfo(link, effect["effectType"], outputFile, outputFile,
-                  effect.get("start", 0), effect.get("end"), do_download=False)
-    
+        inputInfo(
+            link,
+            effect["effectType"],
+            outputFile,
+            outputFile,
+            effect.get("start", 0),
+            effect.get("end"),
+            do_download=False,
+            **effect.get("settings", {})
+        )
+
     return inputFile, original_file_path
+
 
 # Redirect to entering youtube link
 @app.route("/link", methods=["POST"])
@@ -135,12 +160,14 @@ def print_link():
         # Generate visualization data
         visualizations = []
         for effect in effects:
+            settings = effect.get("settings", {})
             viz_data = analyze_audio(
                 input_file,
                 output_file_path,
                 effect["effectType"],
                 effect["start"],
-                effect["end"]
+                effect["end"],
+                **settings
             )
             visualizations.append(viz_data)
 
@@ -153,8 +180,7 @@ def print_link():
     except Exception as e:
         print(f"Error generating plots: {e}")
         # Schedule deletion of audio files if plot generation fails
-        delay = 30
-        schedule_deletion(output_file_path, input_file_path, original_file_path, delay)
+        delay = 300
         return jsonify({
             "result": "Success", 
             "file_url": f"http://localhost:5000/download/{output_filename}",
