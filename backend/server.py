@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_file, after_this_request
+from flask import Flask, jsonify, request, send_file, after_this_request, Response, stream_with_context
 from flask_cors import CORS
 from validate import *
 from dsp import DSP
@@ -6,6 +6,7 @@ import os
 import time
 from threading import Timer
 import shutil
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -70,12 +71,16 @@ def apply_effects(link, effects, inputFile, outputFile):
         )
     return inputFile, original_file_path
 
+from flask import Response, stream_with_context
+import json
+
 @app.route("/link", methods=["POST"])
 def print_link():
     data = request.get_json()
     link = data["link"]
     if not is_valid_yt(link):
         return jsonify({"error": "Not a valid link."}), 400
+
     effects = data.get("effects")
     if not effects:
         choice = data.get("choice", 1)
@@ -84,6 +89,7 @@ def print_link():
             "start": data.get("start_time", 0),
             "end": data.get("end_time")
         }]
+
     timestamp = int(time.time())
     input_filename = f"input_{timestamp}.mp3"
     input_file_path = os.path.join("input", input_filename)
@@ -91,6 +97,7 @@ def print_link():
     output_file_path = os.path.join("output", output_filename)
     original_filename = f"original_{timestamp}.mp3"
     original_file_path = os.path.join("output", original_filename)
+
     max_dur = 600
     duration = video_duration(link)
     for effect in effects:
@@ -102,33 +109,82 @@ def print_link():
             return jsonify({"error": "Invalid timestamp(s) in one of the effects."}), 400
     if duration > max_dur:
         return jsonify({"error": f"Video exceeds maximum duration of {max_dur} seconds."}), 400
-    try:
-        input_file, original_file_path = apply_effects(link, effects, input_file_path, output_file_path)
-        visualizations = []
-        for effect in effects:
-            settings = effect.get("settings", {})
-            viz_data = analyze_audio(
-                input_file,
+
+    def generate():
+        try:
+            # Send "downloading" status
+            yield f"data: {json.dumps({'status': 'downloading'})}\n\n"
+
+            # Download + process first effect (from YouTube)
+            dsp.inputInfo(
+                link,
+                effects[0]["effectType"],
+                input_file_path,
                 output_file_path,
-                effect["effectType"],
-                effect["start"],
-                effect["end"],
-                **settings
+                effects[0].get("start", 0),
+                effects[0].get("end"),
+                do_download=True,
+                **effects[0].get("settings", {})
             )
-            visualizations.append(viz_data)
-        return jsonify({
-            "result": "Success", 
-            "file_url": f"http://localhost:5000/download/{output_filename}",
-            "original_file_url": f"http://localhost:5000/download/{original_filename}",
-            "visualizations": visualizations
-        })
-    except Exception as e:
-        print(f"Error generating plots: {e}")
-        return jsonify({
-            "result": "Success", 
-            "file_url": f"http://localhost:5000/download/{output_filename}",
-            "original_file_url": f"http://localhost:5000/download/{original_filename}"
-        })
+            shutil.copy2(input_file_path, original_file_path)
+
+            # Notify frontend about first effect
+            yield f"data: {json.dumps({'status': 'processing', 'effect_id': effects[0]['effectType']})}\n\n"
+
+            # Apply first effect
+            dsp.inputInfo(
+                link,
+                effects[0]["effectType"],
+                input_file_path,
+                output_file_path,
+                effects[0].get("start", 0),
+                effects[0].get("end"),
+                do_download=False,
+                **effects[0].get("settings", {})
+            )
+
+            # Apply remaining effects
+            for effect in effects[1:]:
+                yield f"data: {json.dumps({'status': 'processing', 'effect_id': effect['effectType']})}\n\n"
+                dsp.inputInfo(
+                    link,
+                    effect["effectType"],
+                    output_file_path,
+                    output_file_path,
+                    effect.get("start", 0),
+                    effect.get("end"),
+                    do_download=False,
+                    **effect.get("settings", {})
+                )
+
+            # Analysis
+            # visualizations = []
+            # for effect in effects:
+            #     settings = effect.get("settings", {})
+            #     viz_data = analyze_audio(
+            #         input_file_path,
+            #         output_file_path,
+            #         effect["effectType"],
+            #         effect["start"],
+            #         effect["end"],
+            #         **settings
+            #     )
+            #     visualizations.append(viz_data)
+
+            # Final success response
+            result = {
+                "status": "done",
+                "result": "Success",
+                "file_url": f"http://localhost:5000/download/{output_filename}",
+                "original_file_url": f"http://localhost:5000/download/{original_filename}",
+            }
+            yield f"data: {json.dumps(result)}\n\n"
+
+        except Exception as e:
+            print(f"Error: {e}")
+            yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
 @app.route("/download/<filename>", methods=["GET"])
 def download_file(filename):

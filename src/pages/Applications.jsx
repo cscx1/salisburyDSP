@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AudioVisualizer from "../components/AudioVisualizer";
+import ProgressDisplay from "../components/ProgressDisplay";
 import { v4 as uuidv4 } from "uuid";
 import {
   DndContext,
@@ -25,7 +26,9 @@ const Applications = () => {
   const [downloadExpired, setDownloadExpired] = useState(false);
   const [visualizations, setVisualizations] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
-
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [currentEffectId, setCurrentEffectId] = useState(null);
+  
   const EFFECT_SETTINGS = {
     1: ["boost", "cutoff"],
     2: ["boost", "center_freq", "bandwidth"],
@@ -140,6 +143,8 @@ const Applications = () => {
     setError("");
     setLoading(true);
     setDownloadExpired(false);
+    setIsDownloading(true);
+    setCurrentEffectId(null);
     try {
       const response = await fetch("http://localhost:5000/link", {
         method: "POST",
@@ -152,6 +157,8 @@ const Applications = () => {
       if (response.ok) {
         setFileUrl(data.file_url);
         setPrintedLink(data.result);
+        setIsDownloading(false);
+        setCurrentEffectId(effects[0]?.effectType ?? null);
         if (data.visualizations) setVisualizations(data.visualizations);
       } else {
         setError(data.error);
@@ -206,7 +213,7 @@ const Applications = () => {
     };
   
     const index = effects.findIndex((e) => e.id === effect.id);
-  
+
     return (
       <div
         ref={setNodeRef}
@@ -354,6 +361,12 @@ const Applications = () => {
           <span className="ml-2">Loading...</span>
         </div>
       )}
+
+      <ProgressDisplay
+        loading={loading}
+        isDownloading={isDownloading}
+        effectId={currentEffectId}
+      />
 
       {file_url && !downloadExpired && (
         <div className="mt-4 space-y-4">
