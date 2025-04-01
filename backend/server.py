@@ -1,8 +1,7 @@
 from flask import Flask, jsonify, request, send_file, after_this_request
 from flask_cors import CORS
 from validate import *
-from dsp import *
-from createImage import *
+from dsp import DSP
 import os
 import time
 from threading import Timer
@@ -11,7 +10,8 @@ import shutil
 app = Flask(__name__)
 CORS(app)
 
-# Check to see if file exists 
+dsp = DSP()
+
 def wait_for_file(filepath, timeout=15):
     start_time = time.time()
     while not os.path.exists(filepath):
@@ -19,7 +19,6 @@ def wait_for_file(filepath, timeout=15):
             raise TimeoutError(f"File {filepath} did not appear within {timeout} seconds")
         time.sleep(0.1)
         
-# Schedule deletion of output folder after 30 seconds
 def schedule_deletion(outputFile, inputFile, originalFile, delay):
     def delete_files():
         for file in [outputFile, inputFile, originalFile]:
@@ -29,14 +28,11 @@ def schedule_deletion(outputFile, inputFile, originalFile, delay):
                     print(f"Deleted {file} after {delay} seconds.")
             except Exception as e:
                 print(f"Error deleting {file}: {e}")
-
     Timer(delay, delete_files).start()
 
-# Function to apply effects
 def apply_effects(link, effects, inputFile, outputFile):
-    # First, download the file
     print("Downloading file...")
-    inputInfo(
+    dsp.inputInfo(
         link,
         effects[0]["effectType"],
         inputFile,
@@ -46,15 +42,11 @@ def apply_effects(link, effects, inputFile, outputFile):
         do_download=True,
         **effects[0].get("settings", {})
     )
-
-    # Make a copy of the original input file before processing
     original_filename = os.path.basename(outputFile).replace('output_', 'original_')
     original_file_path = os.path.join('output', original_filename)
     shutil.copy2(inputFile, original_file_path)
-
-    # Now process the first effect
     print("Processing first effect:", effects[0]["effectType"])
-    inputInfo(
+    dsp.inputInfo(
         link,
         effects[0]["effectType"],
         inputFile,
@@ -64,11 +56,9 @@ def apply_effects(link, effects, inputFile, outputFile):
         do_download=False,
         **effects[0].get("settings", {})
     )
-
-    # Process any subsequent effects
     for effect in effects[1:]:
         print(f"Processing effect {effect['effectType']} in place on file: {outputFile}")
-        inputInfo(
+        dsp.inputInfo(
             link,
             effect["effectType"],
             outputFile,
@@ -78,39 +68,22 @@ def apply_effects(link, effects, inputFile, outputFile):
             do_download=False,
             **effect.get("settings", {})
         )
-
     return inputFile, original_file_path
 
-
-# Redirect to entering youtube link
 @app.route("/link", methods=["POST"])
 def print_link():
-
-    # getting info
     data = request.get_json()
     link = data["link"]
-
-    # Link validtion
     if not is_valid_yt(link):
         return jsonify({"error": "Not a valid link."}), 400
-
     effects = data.get("effects")
-
     if not effects:
         choice = data.get("choice", 1)
-        if isinstance(choice, list):
-            effects = choice 
-        else:
-            effects = [{
-                "effectType": data.get("choice", 1),
-                "start": data.get("start_time", 0),
-                "end": data.get("end_time")
-            }]
-
-    start = data.get("start_time")
-    end = data.get("end_time")
-
-    # naming file
+        effects = choice if isinstance(choice, list) else [{
+            "effectType": choice,
+            "start": data.get("start_time", 0),
+            "end": data.get("end_time")
+        }]
     timestamp = int(time.time())
     input_filename = f"input_{timestamp}.mp3"
     input_file_path = os.path.join("input", input_filename)
@@ -118,46 +91,19 @@ def print_link():
     output_file_path = os.path.join("output", output_filename)
     original_filename = f"original_{timestamp}.mp3"
     original_file_path = os.path.join("output", original_filename)
-
-    # variables needed for validity
     max_dur = 600
     duration = video_duration(link)
-
-    # Validate each timestamp 
     for effect in effects:
-        # Get the start and end values from the dictionary.
         s = effect.get("start")
         en = effect.get("end")
-        
-        # If the values are missing or empty, assign defaults.
-        if s in (None, ""):
-            effect["start"] = 0
-        else:
-            try:
-                effect["start"] = int(s)
-            except ValueError:
-                effect["start"] = 0
-
-        if en in (None, ""):
-            effect["end"] = int(duration)
-        else:
-            try:
-                effect["end"] = int(en)
-            except ValueError:
-                effect["end"] = int(duration)
-
-        if effect["start"] < 0 or effect["end"] > duration or effect["end"] < 0 or effect["end"] > duration:
+        effect["start"] = 0 if s in (None, "") else int(s)
+        effect["end"] = int(duration) if en in (None, "") else int(en)
+        if effect["start"] < 0 or effect["end"] > duration or effect["end"] < 0:
             return jsonify({"error": "Invalid timestamp(s) in one of the effects."}), 400
-
     if duration > max_dur:
         return jsonify({"error": f"Video exceeds maximum duration of {max_dur} seconds."}), 400
-
-    # send the data to validate.py and reutn the result
     try:
-        # Apply effects and get the original input file path
         input_file, original_file_path = apply_effects(link, effects, input_file_path, output_file_path)
-
-        # Generate visualization data
         visualizations = []
         for effect in effects:
             settings = effect.get("settings", {})
@@ -170,7 +116,6 @@ def print_link():
                 **settings
             )
             visualizations.append(viz_data)
-
         return jsonify({
             "result": "Success", 
             "file_url": f"http://localhost:5000/download/{output_filename}",
@@ -179,47 +124,34 @@ def print_link():
         })
     except Exception as e:
         print(f"Error generating plots: {e}")
-        # Schedule deletion of audio files if plot generation fails
-        delay = 300
         return jsonify({
             "result": "Success", 
             "file_url": f"http://localhost:5000/download/{output_filename}",
             "original_file_url": f"http://localhost:5000/download/{original_filename}"
         })
 
-# Redirect to downloading file
 @app.route("/download/<filename>", methods=["GET"])
 def download_file(filename):
     output_file_path = os.path.join("output", filename)
-    
     if not os.path.exists(output_file_path):
         return jsonify({"error": "File not found"}), 404
-
-    # Add CORS headers for audio streaming
     response = send_file(output_file_path, as_attachment=True)
     response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,OPTIONS')
-    
     return response
 
-# Delete file after client confirms download
 @app.route("/delete_file/<filename>", methods=["POST"])
 def delete_file(filename):
     output_file_path = os.path.join("output", filename)
-    
-    # Handle both input and original files
     if filename.startswith("output_"):
         input_file_path = os.path.join("input", filename.replace("output_", "input_"))
         original_file_path = os.path.join("output", filename.replace("output_", "original_"))
-        
         files_to_delete = [output_file_path, input_file_path, original_file_path]
     elif filename.startswith("original_"):
-        # Don't delete other files when deleting original
         files_to_delete = [output_file_path]
     else:
         files_to_delete = [output_file_path]
-
     for file_path in files_to_delete:
         try:
             os.remove(file_path)
@@ -228,20 +160,15 @@ def delete_file(filename):
             print(f"File already deleted: {file_path}")
         except Exception as e:
             print(f"Error deleting file {file_path}: {e}")
-
     return jsonify({"message": "File deleted"}), 200
 
-# Add new route to serve plot images
 @app.route("/plot/<filename>", methods=["GET"])
 def serve_plot(filename):
-    # First check DSPoutput directory
     plot_path = os.path.join("DSPoutput", filename)
     if not os.path.exists(plot_path):
-        # Then check DSPinput directory
         plot_path = os.path.join("DSPinput", filename)
         if not os.path.exists(plot_path):
             return jsonify({"error": "Plot not found"}), 404
-    
     return send_file(plot_path, mimetype='image/png')
 
 if __name__ == "__main__":
