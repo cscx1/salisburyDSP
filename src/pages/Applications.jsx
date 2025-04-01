@@ -139,38 +139,54 @@ const Applications = () => {
     ]);
   };
 
-  const handleLink = async () => {
+  const handleLink = () => {
     setError("");
     setLoading(true);
     setDownloadExpired(false);
     setIsDownloading(true);
     setCurrentEffectId(null);
-    try {
-      const response = await fetch("http://localhost:5000/link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ link, choice: effects }),
-      });
 
-      const data = await response.json();
-
-      if (response.ok) {
+    const params = new URLSearchParams({
+      link,
+      effects: JSON.stringify(effects),
+    });
+  
+    const eventSource = new EventSource(`http://localhost:5000/link?${params}`);
+  
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+  
+      if (data.status === "downloading") {
+        setIsDownloading(true);
+        setCurrentEffectId(null);
+      } else if (data.status === "processing") {
+        setIsDownloading(false);
+        setCurrentEffectId(data.effect_id);
+      } else if (data.status === "done") {
         setFileUrl(data.file_url);
         setPrintedLink(data.result);
         setIsDownloading(false);
-        setCurrentEffectId(effects[0]?.effectType ?? null);
-        if (data.visualizations) setVisualizations(data.visualizations);
-      } else {
-        setError(data.error);
-        setPrintedLink("");
+        setCurrentEffectId(null);
+        setLoading(false);
+        eventSource.close();
+      } else if (data.status === "error") {
+        setError(data.message);
+        setIsDownloading(false);
+        setCurrentEffectId(null);
+        setLoading(false);
+        eventSource.close();
       }
-    } catch (err) {
-      console.error("Backend error:", err);
+    };
+  
+    eventSource.onerror = (err) => {
+      console.error("SSE connection error:", err);
       setError("Failed to connect to backend.");
-    } finally {
       setLoading(false);
-    }
+      setIsDownloading(false);
+      eventSource.close();
+    };
   };
+
 
   const handleStartOver = async () => {
     if (file_url) {

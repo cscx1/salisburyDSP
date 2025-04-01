@@ -71,24 +71,23 @@ def apply_effects(link, effects, inputFile, outputFile):
         )
     return inputFile, original_file_path
 
-from flask import Response, stream_with_context
-import json
-
-@app.route("/link", methods=["POST"])
+@app.route("/link", methods=["GET"])
 def print_link():
-    data = request.get_json()
-    link = data["link"]
+
+    link = request.args.get("link")
+
+    effects_raw = request.args.get("effects")
+    if not effects_raw:
+        effects = [{
+            "effectType": 1,
+            "start": 0,
+            "end": None
+        }]
+    else:
+        effects = json.loads(effects_raw)
+
     if not is_valid_yt(link):
         return jsonify({"error": "Not a valid link."}), 400
-
-    effects = data.get("effects")
-    if not effects:
-        choice = data.get("choice", 1)
-        effects = choice if isinstance(choice, list) else [{
-            "effectType": choice,
-            "start": data.get("start_time", 0),
-            "end": data.get("end_time")
-        }]
 
     timestamp = int(time.time())
     input_filename = f"input_{timestamp}.mp3"
