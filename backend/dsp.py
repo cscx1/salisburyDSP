@@ -269,7 +269,6 @@ class DSP:
             self.process_audio(infile, output_file, self.mids_peak_filter, start_time, end_time, boost, center_freq, bandwidth, 44100)
         elif choice == 3:
             self.process_audio(infile, output_file, self.high_shelf_filter, start_time, end_time, boost, cutoff, 44100)
-            self.process_audio(output_file, output_file, self.compressor_filter, start_time, end_time, threshold, ratio, attack, release, boost, 44100)
         elif choice == 4:
             self.process_audio(infile, output_file, self.compressor_filter, start_time, end_time, threshold, ratio, attack, release, boost, 44100)
         elif choice == 5:

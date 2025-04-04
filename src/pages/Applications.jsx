@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import AudioVisualizer from "../components/AudioVisualizer";
 import ProgressDisplay from "../components/ProgressDisplay";
+import TimeInput from "../components/TimeInput.jsx";
+import SortableEffectRow from "../components/SortableEffectRow";
 import { v4 as uuidv4 } from "uuid";
 import {
   DndContext,
@@ -32,7 +34,7 @@ const Applications = () => {
   const EFFECT_SETTINGS = {
     1: ["boost", "cutoff"],
     2: ["boost", "center_freq", "bandwidth"],
-    3: ["boost", "cutoff", "threshold", "ratio", "attack", "release"],
+    3: ["boost", "cutoff"],
     4: ["threshold", "ratio", "attack", "release"],
     5: ["delay_ms", "decay", "num_echoes"],
     6: ["depth_ms", "mod_freq", "mix"],
@@ -212,107 +214,6 @@ const Applications = () => {
     const newIndex = effects.findIndex((e) => e.id === over.id);
     setEffects((effects) => arrayMove(effects, oldIndex, newIndex));
   };
-
-  // Sortable row component
-  const SortableEffectRow = React.memo(({ effect }) => {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-    } = useSortable({ id: effect.id });
-  
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-    };
-  
-    const index = effects.findIndex((e) => e.id === effect.id);
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-        className="mb-4 p-3 border border-neutral-700 rounded bg-neutral-800 hover:bg-neutral-700 transition-colors"
-      >
-        <div className="flex items-center space-x-2">
-          <div
-            {...listeners}
-            className="cursor-grab px-2 text-neutral-400 text-xl"
-            title="Drag to reorder"
-          >
-            ⋮⋮
-          </div>
-  
-          <select
-            value={effect.effectType}
-            onChange={(e) =>
-              updateEffect(index, "effectType", parseInt(e.target.value))
-            }
-            className="border p-2 flex-1"
-          >
-            <option value={1}>Bass Boost</option>
-            <option value={2}>Mids Boost</option>
-            <option value={3}>High Boost</option>
-            <option value={4}>Compressor</option>
-            <option value={5}>Reverb</option>
-            <option value={6}>Chorus</option>
-          </select>
-  
-          <input
-            type="number"
-            placeholder="Start (s)"
-            value={effect.start ?? ""}
-            onChange={(e) => updateEffect(index, "start", e.target.value)}
-            className="border p-2 w-24"
-          />
-  
-          <input
-            type="number"
-            placeholder="End (s)"
-            value={effect.end ?? ""}
-            onChange={(e) => updateEffect(index, "end", e.target.value)}
-            className="border p-2 w-24"
-          />
-  
-          <button
-            onClick={() => toggleSettings(effect.id)}
-            className="bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-700"
-          >
-            {expandedId === effect.id ? "Hide" : "Settings"}
-          </button>
-  
-          <button
-            onClick={() => removeEffectRow(effect.id)}
-            className="bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600"
-          >
-            Remove
-          </button>
-        </div>
-  
-        {expandedId === effect.id && (
-          <div className="mt-2 p-2 border rounded bg-neutral-900 text-white grid grid-cols-2 md:grid-cols-4 gap-4">
-            {(EFFECT_SETTINGS[effect.effectType] || []).map((field) => (
-              <div key={field}>
-                <label className="block text-sm mb-1">{LABELS[field]}</label>
-                <input
-                  type="number"
-                  value={effect.settings[field] ?? ""}
-                  onChange={(e) =>
-                    updateEffect(index, field, e.target.value, true)
-                  }
-                  className="border p-1 rounded w-full text-white"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  });
-  
   
   return (
     <div className="p-4">
@@ -332,9 +233,20 @@ const Applications = () => {
             items={effects.map((e) => e.id)}
             strategy={verticalListSortingStrategy}
           >
-            {effects.map((effect) => (
-              <SortableEffectRow key={effect.id} effect={effect} />
+            {effects.map((effect, index) => (
+              <SortableEffectRow
+                key={effect.id}
+                effect={effect}
+                index={index}
+                updateEffect={updateEffect}
+                toggleSettings={toggleSettings}
+                removeEffectRow={removeEffectRow}
+                expandedId={expandedId}
+                EFFECT_SETTINGS={EFFECT_SETTINGS}
+                LABELS={LABELS}
+              />
             ))}
+
           </SortableContext>
         </DndContext>
 
