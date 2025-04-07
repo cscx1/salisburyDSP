@@ -12,7 +12,7 @@ const HeroSection = () => {
       </h1>
 
       <p className="mt-10 text-lg text-center text-neutral-500 max-w-4xl">
-      Our research project implements audio filters in Python without relying on external DSP (Digital Signal Processing) libraries, reinforcing a deep understanding of signal manipulation. We visualize frequency domain transformations in DSP through custom JavaScript and D3 programming code.  Our research group also has developed a web-based interface into these analytic tools wherein users can input a YouTube link, apply audio effects such as bass boost, chorus, and reverb, and then download the processed audio. Discrete time graphs are generated to help visualize how each DSP effect transforms the waveform. This tool not only demonstrates core DSP concepts but also serves as a foundation for accessible, real time processing platforms.
+      Our research project implements audio filters in Python which are integrated with Python digital signal processing (DSP) libraries, reinforcing a deep understanding of signal manipulation. We visualize frequency domain transformations in DSP through custom JavaScript and D3 programming code.  Our research group also has developed a web-based interface into these analytic tools wherein users can input a YouTube link, apply audio effects such as bass boost, chorus, and reverb, and then download the processed audio. Discrete time graphs are generated to help visualize how each DSP effect transforms the waveform. This tool not only demonstrates core DSP concepts but also serves as a foundation for accessible, real time processing platforms.
       </p>
 
       <div className="flex justify-center my-10">

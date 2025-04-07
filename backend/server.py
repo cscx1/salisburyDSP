@@ -97,7 +97,9 @@ def print_link():
     original_filename = f"original_{timestamp}.mp3"
     original_file_path = os.path.join("output", original_filename)
 
-    max_dur = 600
+    MINUTES = 15
+    MAX_DUR = 60 * MINUTES
+
     duration = video_duration(link)
     for effect in effects:
         s = effect.get("start")
@@ -106,8 +108,8 @@ def print_link():
         effect["end"] = int(duration) if en in (None, "") else int(en)
         if effect["start"] < 0 or effect["end"] > duration or effect["end"] < 0:
             return jsonify({"error": "Invalid timestamp(s) in one of the effects."}), 400
-    if duration > max_dur:
-        return jsonify({"error": f"Video exceeds maximum duration of {max_dur} seconds."}), 400
+    if duration > MAX_DUR:
+        return jsonify({"error": f"Video exceeds maximum duration of {MAX_DUR} seconds."}), 400
 
     def generate():
         try:
