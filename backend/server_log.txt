@@ -1,0 +1,15 @@
+Usage: python -m flask run [OPTIONS]
+Try 'python -m flask run --help' for help.
+
+Error: While importing 'backend.server', an ImportError was raised:
+
+Traceback (most recent call last):
+  File "/Users/dzane1/Documents/GitHub/salisburyDSP/backend/venv/lib/python3.13/site-packages/flask/cli.py", line 245, in locate_app
+    __import__(module_name)
+    ~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/dzane1/Documents/GitHub/salisburyDSP/backend/__init__.py", line 1, in <module>
+    from .dsp import (
+    ...<9 lines>...
+    )
+ImportError: cannot import name 'bass_boost' from 'backend.dsp' (/Users/dzane1/Documents/GitHub/salisburyDSP/backend/dsp.py)
+

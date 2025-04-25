@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request, send_file, after_this_request
 from flask_cors import CORS
 from validate import *
 from dsp import DSP
+from createImage import analyze_audio
 import os
 import time
 from threading import Timer
@@ -105,30 +106,50 @@ def print_link():
     try:
         input_file, original_file_path = apply_effects(link, effects, input_file_path, output_file_path)
         visualizations = []
-        for effect in effects:
-            settings = effect.get("settings", {})
-            viz_data = analyze_audio(
-                input_file,
-                output_file_path,
-                effect["effectType"],
-                effect["start"],
-                effect["end"],
-                **settings
-            )
-            visualizations.append(viz_data)
+        try:
+            for i, effect in enumerate(effects):
+                print(f"Generating visualization for effect {i+1}: {effect['effectType']}")
+                try:
+                    settings = effect.get("settings", {})
+                    viz_data = analyze_audio(
+                        input_file,
+                        output_file_path,
+                        effect["effectType"],
+                        effect["start"],
+                        effect["end"],
+                        **settings
+                    )
+                    visualizations.append(viz_data)
+                except Exception as viz_error:
+                    print(f"Error generating visualization for effect {i+1}: {viz_error}")
+                    # Add a placeholder for the failed visualization
+                    visualizations.append({
+                        "error": str(viz_error),
+                        "effectInfo": {
+                            "type": effect["effectType"],
+                            "name": f"Effect {effect['effectType']} (Visualization Failed)",
+                            "range": (20, 20000)
+                        }
+                    })
+            
+            print(f"Generated {len(visualizations)} visualizations")
+        except Exception as viz_err:
+            print(f"Error in visualization loop: {viz_err}")
+            visualizations = []
+            
         return jsonify({
             "result": "Success", 
             "file_url": f"http://localhost:5000/download/{output_filename}",
             "original_file_url": f"http://localhost:5000/download/{original_filename}",
-            "visualizations": visualizations
+            "visualizations": visualizations,
+            "duration": duration  # Include the duration for validation in the frontend
         })
     except Exception as e:
-        print(f"Error generating plots: {e}")
+        print(f"Error processing audio: {e}")
+        # Return a meaningful error message to the client
         return jsonify({
-            "result": "Success", 
-            "file_url": f"http://localhost:5000/download/{output_filename}",
-            "original_file_url": f"http://localhost:5000/download/{original_filename}"
-        })
+            "error": f"Error processing audio: {str(e)}",
+        }), 500
 
 @app.route("/download/<filename>", methods=["GET"])
 def download_file(filename):
@@ -170,6 +191,67 @@ def serve_plot(filename):
         if not os.path.exists(plot_path):
             return jsonify({"error": "Plot not found"}), 404
     return send_file(plot_path, mimetype='image/png')
+
+@app.route("/custom_visualization", methods=["POST"])
+def custom_visualization():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    file_url = data.get("file_url")
+    start_time = data.get("start_time")
+    end_time = data.get("end_time")
+    
+    if not file_url or start_time is None or end_time is None:
+        return jsonify({"error": "Missing required parameters"}), 400
+    
+    try:
+        # Convert to appropriate types
+        start_time = float(start_time)
+        end_time = float(end_time)
+        
+        # Validate time ranges
+        if start_time < 0 or start_time >= end_time:
+            return jsonify({"error": "Invalid time range"}), 400
+        
+        # Get the output file path
+        output_file_path = os.path.join("output", file_url)
+        if not os.path.exists(output_file_path):
+            return jsonify({"error": "File not found"}), 404
+        
+        # Get the input file path (original file)
+        input_file_path = os.path.join("output", file_url.replace("output_", "original_"))
+        if not os.path.exists(input_file_path):
+            # Fall back to the output file if original is not available
+            input_file_path = output_file_path
+            
+        print(f"Generating custom visualization for time range {start_time}-{end_time}s")
+        
+        # Generate visualization for the custom time range
+        viz_data = analyze_audio(
+            input_file_path,
+            output_file_path,
+            0,  # No specific effect type for custom visualization
+            start_time,
+            end_time
+        )
+        
+        # Add custom information to the visualization data
+        viz_data["effectInfo"] = {
+            "type": 0,
+            "name": "Custom Time Range",
+            "range": (20, 20000)  # Full frequency range
+        }
+        
+        return jsonify({
+            "result": "Success", 
+            "visualization": viz_data
+        })
+    except ValueError as e:
+        return jsonify({"error": f"Invalid value: {str(e)}"}), 400
+    except Exception as e:
+        print(f"Error generating custom visualization: {e}")
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -25,6 +25,13 @@ const Applications = () => {
   const [downloadExpired, setDownloadExpired] = useState(false);
   const [visualizations, setVisualizations] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
+  const [visibleVisualizations, setVisibleVisualizations] = useState([]);
+  const [customVisualization, setCustomVisualization] = useState(false);
+  const [customTimeStart, setCustomTimeStart] = useState("");
+  const [customTimeEnd, setCustomTimeEnd] = useState("");
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [customVizData, setCustomVizData] = useState(null);
+  const [loadingCustomViz, setLoadingCustomViz] = useState(false);
 
   const EFFECT_SETTINGS = {
     1: ["boost", "cutoff"],
@@ -140,6 +147,10 @@ const Applications = () => {
     setError("");
     setLoading(true);
     setDownloadExpired(false);
+    setVisibleVisualizations([]);
+    setCustomVisualization(false);
+    setCustomVizData(null);
+    
     try {
       const response = await fetch("http://localhost:5000/link", {
         method: "POST",
@@ -152,7 +163,17 @@ const Applications = () => {
       if (response.ok) {
         setFileUrl(data.file_url);
         setPrintedLink(data.result);
-        if (data.visualizations) setVisualizations(data.visualizations);
+        if (data.visualizations) {
+          console.log("Received visualizations:", data.visualizations);
+          setVisualizations(data.visualizations);
+        } else {
+          console.warn("No visualizations received from backend");
+        }
+        
+        // Store the audio duration for custom visualization validation
+        if (data.duration) {
+          setAudioDuration(data.duration);
+        }
       } else {
         setError(data.error);
         setPrintedLink("");
@@ -290,7 +311,69 @@ const Applications = () => {
     );
   });
   
+  const toggleVisualization = (index) => {
+    setVisibleVisualizations(prev => {
+      if (prev.includes(index)) {
+        return prev.filter(i => i !== index);
+      } else {
+        return [...prev, index];
+      }
+    });
+  };
   
+  const fetchCustomVisualization = async () => {
+    if (!customTimeStart || !customTimeEnd) {
+      setError("Please enter both start and end times for custom visualization");
+      return;
+    }
+    
+    const start = parseFloat(customTimeStart);
+    const end = parseFloat(customTimeEnd);
+    
+    if (isNaN(start) || isNaN(end)) {
+      setError("Start and end times must be valid numbers");
+      return;
+    }
+    
+    if (start >= end) {
+      setError("Start time must be less than end time");
+      return;
+    }
+    
+    if (start < 0 || end > audioDuration) {
+      setError(`Time range must be between 0 and ${audioDuration} seconds`);
+      return;
+    }
+    
+    setError("");
+    setLoadingCustomViz(true);
+    
+    try {
+      const response = await fetch("http://localhost:5000/custom_visualization", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          file_url: file_url.split("/").pop(),
+          start_time: start,
+          end_time: end
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.visualization) {
+        setCustomVizData(data.visualization);
+      } else {
+        setError(data.error || "Failed to generate custom visualization");
+      }
+    } catch (err) {
+      console.error("Error generating custom visualization:", err);
+      setError("Server error while generating visualization");
+    } finally {
+      setLoadingCustomViz(false);
+    }
+  };
+
   return (
     <div className="p-4">
       <h2 className="text-xl font-bold">Enter YouTube Link</h2>
@@ -373,17 +456,117 @@ const Applications = () => {
             </button>
           </div>
 
-          {visualizations.map((vizData, index) => (
-            <div key={index} className="mt-8 p-4 border rounded-lg">
-              <h3 className="text-xl font-semibold mb-4">
-                Effect {index + 1}: {vizData.effectInfo.name}
-                <span className="text-sm font-normal ml-2">
-                  (Time Range: {effects[index].start}s - {effects[index].end}s)
-                </span>
+          {/* Custom Visualization Section */}
+          <div className="mt-8 p-4 border rounded-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">
+                Custom Time Range Visualization
               </h3>
-              <AudioVisualizer data={vizData} />
+              <button
+                onClick={() => setCustomVisualization(!customVisualization)}
+                className={`px-4 py-2 rounded-md ${
+                  customVisualization
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-blue-500 hover:bg-blue-600"
+                } text-white`}
+              >
+                {customVisualization ? "Hide Custom Viz" : "Show Custom Viz"}
+              </button>
             </div>
-          ))}
+            
+            {customVisualization && (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-end gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Start Time (seconds)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={audioDuration}
+                      step="0.1"
+                      value={customTimeStart}
+                      onChange={(e) => setCustomTimeStart(e.target.value)}
+                      className="border p-2 w-32"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">End Time (seconds)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={audioDuration}
+                      step="0.1"
+                      value={customTimeEnd}
+                      onChange={(e) => setCustomTimeEnd(e.target.value)}
+                      className="border p-2 w-32"
+                    />
+                  </div>
+                  <button
+                    onClick={fetchCustomVisualization}
+                    disabled={loadingCustomViz}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:opacity-50"
+                  >
+                    {loadingCustomViz ? "Loading..." : "Generate Visualization"}
+                  </button>
+                </div>
+                
+                {customVizData ? (
+                  <AudioVisualizer 
+                    data={customVizData} 
+                    title={`Custom Visualization (${customTimeStart}s - ${customTimeEnd}s)`}
+                  />
+                ) : (
+                  <div className="p-4 bg-gray-800 rounded text-white text-center">
+                    Enter a time range and click "Generate Visualization" to see the visualization for that specific time window.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Effect-based Visualizations */}
+          <h3 className="text-xl font-bold mt-8">Effect Visualizations</h3>
+          {visualizations && visualizations.length > 0 ? (
+            visualizations.map((vizData, index) => (
+              <div key={index} className="mt-4 p-4 border rounded-lg">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-semibold">
+                    Effect {index + 1}: {vizData.effectInfo ? vizData.effectInfo.name : `Effect ${index + 1}`}
+                    <span className="text-sm font-normal ml-2">
+                      (Time Range: {effects[index] ? effects[index].start : 'N/A'}s - {effects[index] ? effects[index].end : 'N/A'}s)
+                    </span>
+                  </h3>
+                  <button
+                    onClick={() => toggleVisualization(index)}
+                    className={`px-4 py-2 rounded-md ${
+                      visibleVisualizations.includes(index)
+                        ? "bg-red-500 hover:bg-red-600"
+                        : "bg-blue-500 hover:bg-blue-600"
+                    } text-white`}
+                  >
+                    {visibleVisualizations.includes(index) ? "Hide Visualization" : "Show Visualization"}
+                  </button>
+                </div>
+                
+                {visibleVisualizations.includes(index) && (
+                  vizData && vizData.timeDomain ? (
+                    <AudioVisualizer 
+                      data={vizData} 
+                      title={`Effect ${index + 1}: ${vizData.effectInfo ? vizData.effectInfo.name : 'Effect'}`}
+                    />
+                  ) : (
+                    <div className="p-4 bg-red-800 rounded text-white">
+                      Error: Missing visualization data for this effect
+                    </div>
+                  )
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="p-4 bg-yellow-800 rounded text-white">
+              No visualization data available. The audio was processed successfully, but visualization data was not generated.
+            </div>
+          )}
         </div>
       )}
     </div>
