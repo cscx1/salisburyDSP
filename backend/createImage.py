@@ -406,28 +406,28 @@ def analyze_audio(input_file, output_file, effect_type, start_time, end_time, **
             6: {"name": "Chorus", "range": (20, 20000)}
         }
 
-        # Handle effect types that aren't in the predefined ranges
+        #handle effect types that aren't in the predefined ranges
         if effect_type not in freq_ranges:
             print(f"WARNING: Unknown effect type: {effect_type}, using full range")
             freq_ranges[effect_type] = {"name": f"Effect {effect_type}", "range": (20, 20000)}
 
-        # Prepare time domain data (downsample for visualization)
+        #prepare time domain data (downsample for visualization)
         step = max(len(window_in) // 1000, 1)
         time_points = np.arange(start_time, end_time, (end_time - start_time)/len(window_in))[::step]
         samples_in = window_in[::step]
         samples_out = window_out[::step]
         
-        # For long time ranges (> 10 seconds), use a more strategic downsampling
+        #For long time ranges (> 10 seconds), use a more strategic downsampling
         # to preserve signal characteristics
         duration = end_time - start_time
         if duration > 10:
             print(f"Long time range detected ({duration:.2f}s) - using enhanced downsampling")
             
-            # Calculate a more aggressive downsampling factor to limit points
+            # Calculate a more aggressive downsampling factor to limit points. 
             target_points = min(1000, max(100, 10000 // int(duration)))
             new_step = max(len(window_in) // target_points, 1)
             
-            # Use the more aggressive step if it's larger than original
+            #use the more aggressive step if it's larger than original
             if new_step > step:
                 step = new_step
                 time_points = np.arange(start_time, end_time, (end_time - start_time)/len(window_in))[::step]
@@ -578,7 +578,7 @@ def analyze_audio(input_file, output_file, effect_type, start_time, end_time, **
         
         print(f"Final time domain data points: {len(time_points)}")
 
-        # Prepare frequency domain data
+        #prepare frequency domain data
         freq_points = freqs[mask][::step]
         power_in = fft_in[mask][::step]
         power_out = fft_out[mask][::step]
@@ -588,13 +588,13 @@ def analyze_audio(input_file, output_file, effect_type, start_time, end_time, **
         # Root Mean Square Error (RMSE)
         rmse = np.sqrt(np.mean((window_in - window_out) ** 2))
         
-        # Correlation coefficient
+        #correlation coefficient
         correlation = np.corrcoef(window_in, window_out)[0, 1]
         
-        # Maximum absolute difference
+        #maximum absolute difference
         max_diff = np.max(np.abs(window_in - window_out))
         
-        # Signal-to-Noise Ratio (SNR)
+        #Signal-to-Noise Ratio (SNR)
         noise = window_in - window_out
         signal_power = np.mean(window_in**2)
         noise_power = np.mean(noise**2) if np.mean(noise**2) > 0 else 1e-10
