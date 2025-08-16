@@ -137,10 +137,13 @@ def print_link():
             print(f"Error in visualization loop: {viz_err}")
             visualizations = []
             
+        # Get the base URL from environment or use localhost as fallback
+        base_url = os.environ.get("BASE_URL", "http://localhost:5000")
+        
         return jsonify({
             "result": "Success", 
-            "file_url": f"http://localhost:5000/download/{output_filename}",
-            "original_file_url": f"http://localhost:5000/download/{original_filename}",
+            "file_url": f"{base_url}/download/{output_filename}",
+            "original_file_url": f"{base_url}/download/{original_filename}",
             "visualizations": visualizations,
             "duration": duration  # Include the duration for validation in the frontend
         })
@@ -254,4 +257,8 @@ def custom_visualization():
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    host = os.environ.get("HOST", "0.0.0.0")
+    debug = os.environ.get("FLASK_DEBUG", "False").lower() == "true"
+    app.run(host=host, port=port, debug=debug)
