@@ -17,6 +17,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 const Applications = () => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  
   const [link, setLink] = useState("");
   const [error, setError] = useState("");
   const [printedLink, setPrintedLink] = useState("");
@@ -152,7 +154,7 @@ const Applications = () => {
     setCustomVizData(null);
     
     try {
-      const response = await fetch("http://localhost:5000/link", {
+      const response = await fetch(`${API_URL}/link`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ link, choice: effects }),
@@ -190,7 +192,7 @@ const Applications = () => {
     if (file_url) {
       try {
         await fetch(
-          `http://localhost:5000/delete_file/${file_url.split("/").pop()}`,
+          `${API_URL}/delete_file/${file_url.split("/").pop()}`,
           { method: "POST" }
         );
         setFileUrl(null);
@@ -349,7 +351,7 @@ const Applications = () => {
     setLoadingCustomViz(true);
     
     try {
-      const response = await fetch("http://localhost:5000/custom_visualization", {
+      const response = await fetch(`${API_URL}/custom_visualization`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import SignalChart from '../components/SignalChart';
 
 const Projects = () => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  
   const [youtubeLink, setYoutubeLink] = useState('');
   const [loading, setLoading] = useState(false);
   const [audioFile, setAudioFile] = useState(null);
@@ -78,7 +80,7 @@ const Projects = () => {
     setDebugInfo('Submitting request to backend...');
     
     try {
-      const response = await fetch('http://localhost:5000/link', {
+      const response = await fetch(`${API_URL}/link`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
