@@ -375,7 +375,7 @@ const Applications = () => {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4" style={{ fontFamily: "'Nunito Sans', sans-serif" }}>
       <h2 className="text-xl font-bold">Enter YouTube Link</h2>
       <input
         type="text"
