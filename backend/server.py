@@ -9,9 +9,17 @@ from threading import Timer
 import shutil
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["*"], allow_headers=["Content-Type", "Authorization"], methods=["GET", "POST", "OPTIONS"])
 
 dsp = DSP()
+
+@app.route("/", methods=["GET"])
+def health_check():
+    return jsonify({"message": "Salisbury DSP Backend is running!", "status": "healthy"})
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"message": "Backend is healthy", "status": "ok"})
 
 def wait_for_file(filepath, timeout=15):
     start_time = time.time()
