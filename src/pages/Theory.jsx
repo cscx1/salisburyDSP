@@ -3,7 +3,7 @@ import { BlockMath, InlineMath } from 'react-katex';
 
 const Theory = () => {
   return (
-    <div className="text-left text-lg px-8 py-12 space-y-10 max-w-5xl mx-auto leading-relaxed">
+    <div className="text-left text-lg px-8 py-12 space-y-10 max-w-5xl mx-auto leading-relaxed" style={{ fontFamily: "'Nunito Sans', sans-serif" }}>
       <h1 className="text-3xl font-bold text-center">Theory Behind the Processing</h1>
 
       <section>
