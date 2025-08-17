@@ -21,6 +21,63 @@ def health_check():
 def health():
     return jsonify({"message": "Backend is healthy", "status": "ok"})
 
+@app.route("/debug", methods=["POST"])
+def debug_request():
+    """Debug endpoint to see what data we're receiving"""
+    try:
+        data = request.get_json()
+        print(f"DEBUG: Received data: {data}")
+        
+        if not data:
+            return jsonify({"error": "No JSON data received", "received": str(request.data)})
+        
+        link = data.get("link")
+        effects = data.get("effects") or data.get("choice", [])
+        
+        print(f"DEBUG: Link: {link}")
+        print(f"DEBUG: Effects: {effects}")
+        
+        if not link:
+            return jsonify({"error": "No link provided", "data": data})
+            
+        # Try to get duration
+        try:
+            duration = video_duration(link)
+            print(f"DEBUG: Video duration: {duration}")
+        except Exception as e:
+            print(f"DEBUG: Duration error: {e}")
+            return jsonify({"error": f"Duration calculation failed: {str(e)}", "link": link})
+        
+        # Check effects processing
+        for i, effect in enumerate(effects):
+            print(f"DEBUG: Effect {i}: {effect}")
+            s = effect.get("start")
+            en = effect.get("end")
+            print(f"DEBUG: Raw start: {s}, Raw end: {en}")
+            
+            start_processed = 0 if s in (None, "") else int(s)
+            end_processed = int(duration) if en in (None, "") else int(en)
+            print(f"DEBUG: Processed start: {start_processed}, Processed end: {end_processed}")
+            
+            if start_processed < 0 or end_processed > duration or end_processed < 0:
+                return jsonify({
+                    "error": "Timestamp validation failed",
+                    "start": start_processed,
+                    "end": end_processed,
+                    "duration": duration,
+                    "effect_index": i
+                })
+        
+        return jsonify({
+            "success": "All validations passed!",
+            "duration": duration,
+            "effects_count": len(effects)
+        })
+        
+    except Exception as e:
+        print(f"DEBUG: Exception: {e}")
+        return jsonify({"error": f"Debug endpoint error: {str(e)}"}))
+
 def wait_for_file(filepath, timeout=15):
     start_time = time.time()
     while not os.path.exists(filepath):
