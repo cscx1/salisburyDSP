@@ -76,7 +76,7 @@ def debug_request():
         
     except Exception as e:
         print(f"DEBUG: Exception: {e}")
-        return jsonify({"error": f"Debug endpoint error: {str(e)}"}))
+        return jsonify({"error": f"Debug endpoint error: {str(e)}"})
 
 def wait_for_file(filepath, timeout=15):
     start_time = time.time()
