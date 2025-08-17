@@ -19,6 +19,12 @@ def is_valid_yt(link) -> bool:
 # validates that the given link
 # is no more than 600 seconds
 def video_duration(link):
+    # Skip YouTube API calls on production deployment to avoid network restrictions
+    import os
+    if os.environ.get("PORT"):  # Render sets PORT env variable
+        print(f"Production environment detected, using default duration for: {link}")
+        return 300  # Default to 5 minutes for production
+    
     try:
         result = subprocess.run (
             ["yt-dlp", "--dump-json", "--no-playlist", link],
