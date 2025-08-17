@@ -28,6 +28,12 @@ def video_duration(link):
         )
         video_info = json.loads(result.stdout)
         return video_info.get("duration", 0)
+    except subprocess.CalledProcessError as e:
+        print(f"yt-dlp command failed: {e}")
+        print(f"Return code: {e.returncode}")
+        print(f"stdout: {e.stdout}")
+        print(f"stderr: {e.stderr}")
+        return -1
     except Exception as e:
         print(f"Error fetching video info: {e}")
         return -1
