@@ -40,10 +40,39 @@ def debug_request():
         if not link:
             return jsonify({"error": "No link provided", "data": data})
             
-        # Try to get duration
+        # Try to get duration with detailed error capture
         try:
             duration = video_duration(link)
             print(f"DEBUG: Video duration: {duration}")
+            if duration == -1:
+                # If duration is -1, capture the actual yt-dlp error
+                try:
+                    import subprocess
+                    result = subprocess.run(
+                        ["yt-dlp", "--dump-json", "--no-playlist", link],
+                        capture_output=True, text=True, timeout=30
+                    )
+                    return jsonify({
+                        "error": "yt-dlp returned -1 but no exception",
+                        "yt_dlp_returncode": result.returncode,
+                        "yt_dlp_stdout": result.stdout[:500],  # Limit output
+                        "yt_dlp_stderr": result.stderr[:500],
+                        "link": link
+                    })
+                except subprocess.TimeoutExpired:
+                    return jsonify({"error": "yt-dlp timeout - network or server issue", "link": link})
+                except subprocess.CalledProcessError as e:
+                    return jsonify({
+                        "error": "yt-dlp command failed",
+                        "returncode": e.returncode,
+                        "stdout": e.stdout[:500],
+                        "stderr": e.stderr[:500],
+                        "link": link
+                    })
+                except FileNotFoundError:
+                    return jsonify({"error": "yt-dlp not found - not installed on server", "link": link})
+                except Exception as e:
+                    return jsonify({"error": f"yt-dlp error: {str(e)}", "link": link})
         except Exception as e:
             print(f"DEBUG: Duration error: {e}")
             return jsonify({"error": f"Duration calculation failed: {str(e)}", "link": link})
